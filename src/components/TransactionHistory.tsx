@@ -194,6 +194,23 @@ export function TransactionHistory() {
     }
   }
 
+  const handleClearHistory = () => {
+    if (!address) return
+    
+    const confirmation = confirm('Are you sure you want to clear all transaction history? This action cannot be undone.')
+    if (confirmation) {
+      transferStorage.clearTransfers(address)
+      setTransfers([])
+    }
+  }
+
+  const handleRemoveTransfer = (transferId: string) => {
+    transferStorage.removeTransfer(transferId)
+    if (address) {
+      setTransfers(transferStorage.getTransfers(address))
+    }
+  }
+
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -235,15 +252,39 @@ export function TransactionHistory() {
 
   return (
     <div className="transaction-history">
-      <button 
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="history-toggle"
-      >
-        <span className="history-icon">📜</span>
-        Transaction History ({transfers.length})
-        <span className={`toggle-arrow ${isExpanded ? 'expanded' : ''}`}>▶</span>
-      </button>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <button 
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="history-toggle"
+          style={{ flex: 1 }}
+        >
+          <span className="history-icon">📜</span>
+          Transaction History ({transfers.length})
+          <span className={`toggle-arrow ${isExpanded ? 'expanded' : ''}`}>▶</span>
+        </button>
+        
+        {transfers.length > 0 && (
+          <button
+            type="button"
+            onClick={handleClearHistory}
+            className="clear-history-btn"
+            style={{
+              background: '#e53e3e',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: '500'
+            }}
+            title="Clear all transaction history"
+          >
+            🗑️ Clear
+          </button>
+        )}
+      </div>
       
       {isExpanded && (
         <div className="history-panel">
@@ -300,7 +341,23 @@ export function TransactionHistory() {
                             />
                             <span className="status-text">{STATUS_INFO[transfer.status]?.text}</span>
                           </div>
-                          <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
+                            <button
+                              onClick={() => handleRemoveTransfer(transfer.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#e53e3e',
+                                cursor: 'pointer',
+                                padding: '0.25rem',
+                                fontSize: '0.875rem'
+                              }}
+                              title="Remove transfer"
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
 
                         {transfer.burnTxHash && (
@@ -397,7 +454,23 @@ export function TransactionHistory() {
                             />
                             <span className="status-text">{STATUS_INFO[transfer.status]?.text}</span>
                           </div>
-                          <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
+                            <button
+                              onClick={() => handleRemoveTransfer(transfer.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#e53e3e',
+                                cursor: 'pointer',
+                                padding: '0.25rem',
+                                fontSize: '0.875rem'
+                              }}
+                              title="Remove transfer"
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
 
                         <div className="tx-links">

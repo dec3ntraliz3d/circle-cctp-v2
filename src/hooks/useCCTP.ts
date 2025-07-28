@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAccount, usePublicClient, useWalletClient, useChainId } from 'wagmi'
-import { encodeFunctionData, parseUnits } from 'viem'
+import { encodeFunctionData } from 'viem'
 import axios from 'axios'
 import { getContractsForChain, type ChainId } from '../config/cctp'
 import { type CCTPTransfer, type TransferStatus, type AttestationResponse } from '../types/cctp'
@@ -67,6 +67,26 @@ export const useCCTP = () => {
   const { data: walletClient } = useWalletClient()
   const [transferStatus, setTransferStatus] = useState<TransferStatus>({ status: 'idle' })
   const [currentTransferId, setCurrentTransferId] = useState<string | null>(null)
+
+  // Fast transfer fee rates (in basis points)
+  const FAST_TRANSFER_FEES: Record<number, number> = {
+    1: 1,      // Ethereum: 1 bps (0.01%)
+    8453: 1,   // Base: 1 bps (0.01%)
+    10: 1,     // Optimism: 1 bps (0.01%)
+    42161: 1,  // Arbitrum: 1 bps (0.01%)
+    43114: 1,  // Avalanche: 1 bps (0.01%)
+    137: 1,    // Polygon: 1 bps (0.01%)
+    59144: 14, // Linea: 14 bps (0.14%)
+    130: 1,    // Unichain: 1 bps (0.01%)
+    480: 1,    // World Chain: 1 bps (0.01%)
+    1329: 1,   // Sei: 1 bps (0.01%)
+    146: 1,    // Sonic: 1 bps (0.01%)
+  }
+
+  const calculateFastTransferFee = useCallback((amount: bigint, chainId: number): bigint => {
+    const feeRateBps = FAST_TRANSFER_FEES[chainId] || 1
+    return (amount * BigInt(feeRateBps)) / BigInt(10000) // Convert basis points to percentage
+  }, [])
 
   const formatAddressToBytes32 = useCallback((address: string): `0x${string}` => {
     return `0x000000000000000000000000${address.slice(2).toLowerCase()}` as `0x${string}`
@@ -179,14 +199,14 @@ export const useCCTP = () => {
           destinationAddressBytes32,
           sourceContracts.usdc as `0x${string}`,
           destinationCallerBytes32,
-          transfer.useFastTransfer ? (transfer.maxFee || parseUnits('1', 6)) : 0n, // maxFee
+          transfer.useFastTransfer ? calculateFastTransferFee(transfer.amount, transfer.sourceChain) : 0n, // maxFee
           transfer.useFastTransfer ? 1000 : 2000, // minFinalityThreshold
         ],
       }),
     })
 
     return hash
-  }, [walletClient, address, formatAddressToBytes32])
+  }, [walletClient, address, formatAddressToBytes32, calculateFastTransferFee])
 
   const retrieveAttestation = useCallback(async (
     transactionHash: string,
@@ -264,11 +284,15 @@ export const useCCTP = () => {
       updateTransferStatus({ status: 'approving' })
       saveTransferState(transferId, transfer, { status: 'approving' })
 
+      // Calculate total amount needed (transfer amount + fee for fast transfers)
+      const feeAmount = transfer.useFastTransfer ? calculateFastTransferFee(transfer.amount, transfer.sourceChain) : 0n
+      const totalAmountNeeded = transfer.amount + feeAmount
+
       // Check if approval is needed
-      const hasAllowance = await checkAllowance(transfer.sourceChain as ChainId, transfer.amount)
+      const hasAllowance = await checkAllowance(transfer.sourceChain as ChainId, totalAmountNeeded)
       
       if (!hasAllowance) {
-        const approveTx = await approveUSDC(transfer.sourceChain as ChainId, transfer.amount)
+        const approveTx = await approveUSDC(transfer.sourceChain as ChainId, totalAmountNeeded)
         updateTransferStatus({ status: 'approving', txHash: approveTx })
         
         // Wait for approval confirmation
@@ -369,7 +393,7 @@ export const useCCTP = () => {
         throw error
       }
     }
-  }, [currentChainId, checkAllowance, approveUSDC, burnUSDC, retrieveAttestation, mintUSDC, publicClient])
+  }, [currentChainId, checkAllowance, approveUSDC, burnUSDC, retrieveAttestation, mintUSDC, publicClient, calculateFastTransferFee])
 
   const resumeTransfer = useCallback(async (
     transferId: string,

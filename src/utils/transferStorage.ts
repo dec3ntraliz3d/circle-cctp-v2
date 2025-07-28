@@ -121,5 +121,37 @@ export const transferStorage = {
   // Generate a unique transfer ID
   generateId(): string {
     return `cctp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+  },
+
+  // Clear all transfers for a wallet address
+  clearTransfers(walletAddress: string): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
+
+      const allTransfers: StoredTransfer[] = JSON.parse(stored)
+      const remainingTransfers = allTransfers.filter(t => 
+        t.walletAddress.toLowerCase() !== walletAddress.toLowerCase()
+      )
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remainingTransfers))
+    } catch (error) {
+      console.error('Error clearing transfers from storage:', error)
+    }
+  },
+
+  // Remove a specific transfer by ID
+  removeTransfer(transferId: string): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
+
+      const allTransfers: StoredTransfer[] = JSON.parse(stored)
+      const filteredTransfers = allTransfers.filter(t => t.id !== transferId)
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredTransfers))
+    } catch (error) {
+      console.error('Error removing transfer from storage:', error)
+    }
   }
 }
