@@ -1,0 +1,12 @@
+node_modules
+.git
+.env.local
+.env.*.local
+dist
+.vercel
+*.log
+.DS_Store
+src/**/*.test.ts
+src/**/*.test.tsx
+src/**/*.spec.ts
+src/**/*.spec.tsx
