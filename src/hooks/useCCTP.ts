@@ -27,6 +27,15 @@ const USDC_ABI = [
     ],
     outputs: [{ name: '', type: 'uint256' }],
   },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'account', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 ] as const
 
 const TOKEN_MESSENGER_ABI = [
@@ -153,6 +162,29 @@ export const useCCTP = () => {
     }
   }, [currentTransferId, address])
 
+  const checkBalance = useCallback(async (
+    chainId: ChainId,
+    amount: bigint
+  ): Promise<boolean> => {
+    if (!address || !publicClient) return false
+
+    const contracts = getContractsForChain(chainId)
+    
+    try {
+      const balance = await publicClient.readContract({
+        address: contracts.usdc as `0x${string}`,
+        abi: USDC_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      })
+      
+      return balance >= amount
+    } catch (error) {
+      console.error('Error checking balance:', error)
+      return false
+    }
+  }, [address, publicClient])
+
   const checkAllowance = useCallback(async (
     chainId: ChainId,
     amount: bigint
@@ -252,10 +284,10 @@ export const useCCTP = () => {
           console.log('Transfer pending confirmations, delay reason:', message.delayReason)
         }
         
-        await new Promise(resolve => setTimeout(resolve, 60000)) // Check every minute
+        await new Promise(resolve => setTimeout(resolve, 20000)) // Check every 20 seconds for faster response
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 404) {
-          await new Promise(resolve => setTimeout(resolve, 60000)) // Check every minute
+          await new Promise(resolve => setTimeout(resolve, 20000)) // Check every 20 seconds for faster response
           continue
         }
         throw error
@@ -301,15 +333,20 @@ export const useCCTP = () => {
       updateTransferStatus({ status: 'approving' })
       // Don't save to history yet - wait until burn transaction succeeds
 
-      // Calculate total amount needed (transfer amount + fee for fast transfers)
-      const feeAmount = transfer.useFastTransfer ? calculateFastTransferFee(transfer.amount, transfer.sourceChain) : 0n
-      const totalAmountNeeded = transfer.amount + feeAmount
+      // Only approve the transfer amount - fast transfer fees are deducted during redemption
+      const transferAmount = transfer.amount
+
+      // Check if user has sufficient balance
+      const hasBalance = await checkBalance(transfer.sourceChain as ChainId, transferAmount)
+      if (!hasBalance) {
+        throw new Error('Insufficient USDC balance to complete this transfer')
+      }
 
       // Check if approval is needed
-      const hasAllowance = await checkAllowance(transfer.sourceChain as ChainId, totalAmountNeeded)
+      const hasAllowance = await checkAllowance(transfer.sourceChain as ChainId, transferAmount)
       
       if (!hasAllowance) {
-        const approveTx = await approveUSDC(transfer.sourceChain as ChainId, totalAmountNeeded)
+        const approveTx = await approveUSDC(transfer.sourceChain as ChainId, transferAmount)
         updateTransferStatus({ status: 'approving', txHash: approveTx })
         
         // Wait for approval confirmation
@@ -344,7 +381,7 @@ export const useCCTP = () => {
       })
 
       // Auto-trigger minting after brief delay to show ready state
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise(resolve => setTimeout(resolve, 3000))
 
       try {
         // Mint USDC on destination chain
@@ -413,7 +450,7 @@ export const useCCTP = () => {
         throw error
       }
     }
-  }, [currentChainId, checkAllowance, approveUSDC, burnUSDC, retrieveAttestation, mintUSDC, publicClient, calculateFastTransferFee])
+  }, [currentChainId, checkBalance, checkAllowance, approveUSDC, burnUSDC, retrieveAttestation, mintUSDC, publicClient, calculateFastTransferFee])
 
   const resumeTransfer = useCallback(async (
     transferId: string,
@@ -549,9 +586,15 @@ export const useCCTP = () => {
     try {
       setCurrentTransferId(burnTxHash)
       
-      // Check if we're on the correct destination chain first
-      if (currentChainId !== destinationChain) {
-        throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
+      // Auto-switch to destination chain if not already there
+      if (currentChainId !== destinationChain && walletClient) {
+        try {
+          await walletClient.switchChain({ id: destinationChain })
+          // Wait a moment for the chain switch to complete
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (switchError) {
+          throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
+        }
       }
 
       updateTransferStatus({ 
@@ -586,13 +629,14 @@ export const useCCTP = () => {
       })
       throw error
     }
-  }, [mintUSDC, updateTransferStatus, currentChainId, getChainName])
+  }, [mintUSDC, updateTransferStatus, currentChainId, getChainName, walletClient])
 
 return {
     transferUSDC,
     transferStatus,
     clearError,
     checkAllowance,
+    checkBalance,
     manualMint,
     resumeTransfer,
     redeemTransfer,

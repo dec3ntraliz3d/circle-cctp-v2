@@ -110,11 +110,29 @@ export function TransactionHistory() {
             // Refresh UI to show attestation ready
             setTransfers(transferStorage.getTransfers(address!))
 
-            // Auto-trigger redemption after short delay
+            // Auto-trigger redemption after short delay - only if not already minted
             setTimeout(async () => {
               try {
+                // Check if transfer is still in attestation_ready state
+                const currentTransfer = transferStorage.getTransfer(transfer.id)
+                if (currentTransfer?.status !== 'attestation_ready') {
+                  console.log('Transfer already processed, skipping auto-redemption')
+                  return
+                }
+
                 console.log('Auto-triggering redemption for transfer:', transfer.id)
+                
+                // Show auto-redemption starting message
+                transferStorage.updateTransfer(transfer.burnTxHash!, {
+                  status: 'attestation_ready',
+                  attestation: attestationData,
+                  error: 'Auto-redemption starting...'
+                })
+                setTransfers(transferStorage.getTransfers(address!))
+                
                 await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
+                console.log('Auto-redemption successful for transfer:', transfer.id)
+                
                 // Refresh UI after successful auto-redemption
                 setTransfers(transferStorage.getTransfers(address!))
                 console.log('Auto-redemption successful for transfer:', transfer.id)
@@ -128,7 +146,7 @@ export function TransactionHistory() {
                 })
                 setTransfers(transferStorage.getTransfers(address!))
               }
-            }, 2000) // 2 second delay to let UI update
+            }, 3000) // 3 second delay to let UI update and allow chain switching
           } else if (message?.status === 'pending_confirmations') {
             // Still waiting - update to waiting_attestation
             transferStorage.updateTransfer(transfer.burnTxHash!, {
@@ -195,14 +213,31 @@ export function TransactionHistory() {
               // Refresh UI
               setTransfers(transferStorage.getTransfers(address))
 
-              // Auto-trigger redemption after short delay
+              // Auto-trigger redemption after short delay - only if not already minted
               setTimeout(async () => {
                 try {
+                  // Check if transfer is still in attestation_ready state
+                  const currentTransfer = transferStorage.getTransfer(transfer.id)
+                  if (currentTransfer?.status !== 'attestation_ready') {
+                    console.log('Transfer already processed, skipping auto-redemption')
+                    return
+                  }
+
                   console.log('Auto-triggering redemption for transfer:', transfer.id)
+                  
+                  // Show auto-redemption starting message
+                  transferStorage.updateTransfer(transfer.burnTxHash!, {
+                    status: 'attestation_ready',
+                    attestation: attestationData,
+                    error: 'Auto-redemption starting...'
+                  })
+                  setTransfers(transferStorage.getTransfers(address))
+                  
                   await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
+                  console.log('Auto-redemption successful for transfer:', transfer.id)
+                  
                   // Refresh UI after successful auto-redemption
                   setTransfers(transferStorage.getTransfers(address))
-                  console.log('Auto-redemption successful for transfer:', transfer.id)
                 } catch (error) {
                   console.log('Auto-redemption failed, user can redeem manually:', error)
                   // Update storage to show redemption failed but attestation is still ready
@@ -213,7 +248,7 @@ export function TransactionHistory() {
                   })
                   setTransfers(transferStorage.getTransfers(address))
                 }
-              }, 2000) // 2 second delay to let UI update
+              }, 3000) // 3 second delay to let UI update and allow chain switching
             }
           }
         } catch (error) {
@@ -225,7 +260,7 @@ export function TransactionHistory() {
     // Check immediately and then every 2 minutes for waiting transfers
     if (transfers.some(t => t.status === 'waiting_attestation')) {
       checkPendingAttestations()
-      const interval = setInterval(checkPendingAttestations, 120000)
+      const interval = setInterval(checkPendingAttestations, 30000) // Check every 30 seconds for faster response
       return () => clearInterval(interval)
     }
 
