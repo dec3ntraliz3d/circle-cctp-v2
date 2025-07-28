@@ -36,6 +36,23 @@ export function TransactionHistory() {
   const [transfers, setTransfers] = useState<StoredTransfer[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
 
+  const getDomainId = (chainId: number): string => {
+    const domainMap: Record<number, string> = {
+      1: '0',      // Ethereum
+      43114: '1',  // Avalanche  
+      10: '2',     // Optimism
+      42161: '3',  // Arbitrum
+      8453: '6',   // Base
+      137: '7',    // Polygon
+      130: '10',   // Unichain
+      59144: '11', // Linea
+      146: '13',   // Sonic
+      480: '14',   // World Chain
+      1329: '16'   // Sei
+    }
+    return domainMap[chainId] || '0'
+  }
+
   useEffect(() => {
     if (address) {
       const userTransfers = transferStorage.getTransfers(address)
@@ -50,28 +67,12 @@ export function TransactionHistory() {
   useEffect(() => {
     if (!address) return
 
-    const getDomainId = (chainId: number): string => {
-      const domainMap: Record<number, string> = {
-        1: '0',      // Ethereum
-        43114: '1',  // Avalanche  
-        10: '2',     // Optimism
-        42161: '3',  // Arbitrum
-        8453: '6',   // Base
-        137: '7',    // Polygon
-        130: '10',   // Unichain
-        59144: '11', // Linea
-        146: '13',   // Sonic
-        480: '14',   // World Chain
-        1329: '16'   // Sei
-      }
-      return domainMap[chainId] || '0'
-    }
-
     const checkPendingAttestations = async () => {
       const pendingTransfers = transfers.filter(t => 
-        t.status === 'waiting_attestation' && 
         t.burnTxHash && 
-        !t.attestation
+        !t.attestation &&
+        t.status !== 'completed' && 
+        t.status !== 'error'
       )
 
       for (const transfer of pendingTransfers) {
@@ -141,6 +142,55 @@ export function TransactionHistory() {
     } catch (error) {
       console.error('Failed to redeem transfer:', error)
       alert(`Failed to redeem transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleCheckStatus = async (transfer: StoredTransfer) => {
+    if (!transfer.burnTxHash) {
+      alert('Cannot check status: No burn transaction hash found')
+      return
+    }
+
+    try {
+      const domainId = getDomainId(transfer.sourceChain)
+      const response = await fetch(`https://iris-api.circle.com/v2/messages/${domainId}?transactionHash=${transfer.burnTxHash}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        const message = data?.messages?.[0]
+        
+        if (message?.status === 'complete' && message.attestation) {
+          // Update stored transfer with attestation
+          transferStorage.updateTransfer(transfer.burnTxHash, {
+            status: 'attestation_ready',
+            attestation: {
+              message: message.message,
+              attestation: message.attestation,
+              status: 'complete',
+              eventNonce: message.eventNonce,
+              cctpVersion: message.cctpVersion,
+            }
+          })
+          
+          // Refresh UI
+          setTransfers(transferStorage.getTransfers(address!))
+          alert('Status updated! Attestation is ready for redemption.')
+        } else if (message?.status === 'pending_confirmations') {
+          // Update to waiting attestation status
+          transferStorage.updateTransfer(transfer.burnTxHash, {
+            status: 'waiting_attestation'
+          })
+          setTransfers(transferStorage.getTransfers(address!))
+          alert('Transfer found on blockchain. Still waiting for attestation (~20 minutes).')
+        } else {
+          alert('Transfer not found or still processing. Please wait and try again.')
+        }
+      } else {
+        alert('Unable to check transfer status. Please try again later.')
+      }
+    } catch (error) {
+      console.error('Failed to check transfer status:', error)
+      alert('Failed to check status. Please try again.')
     }
   }
 
@@ -253,7 +303,7 @@ export function TransactionHistory() {
                           <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
                         </div>
 
-                        {(transfer.status === 'waiting_attestation' || transfer.status === 'attestation_ready') && transfer.burnTxHash && (
+                        {transfer.burnTxHash && (
                           <div className="transfer-actions">
                             {transfer.status === 'attestation_ready' && transfer.attestation ? (
                               <button
@@ -263,13 +313,22 @@ export function TransactionHistory() {
                               >
                                 ⚡ Redeem Now
                               </button>
-                            ) : (
+                            ) : transfer.status === 'waiting_attestation' ? (
                               <button
                                 onClick={() => handleResumeTransfer(transfer)}
                                 disabled={transferStatus.status !== 'idle'}
                                 className="resume-btn"
                               >
                                 ▶ Resume Transfer
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleCheckStatus(transfer)}
+                                disabled={transferStatus.status !== 'idle'}
+                                className="resume-btn"
+                                style={{ background: '#48bb78' }}
+                              >
+                                🔍 Check Status
                               </button>
                             )}
                           </div>
