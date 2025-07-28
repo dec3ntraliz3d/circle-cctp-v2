@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAccount, usePublicClient, useWalletClient, useChainId } from 'wagmi'
-import { encodeFunctionData } from 'viem'
+import { encodeFunctionData, parseUnits } from 'viem'
 import axios from 'axios'
 import { getContractsForChain, type ChainId } from '../config/cctp'
 import { type CCTPTransfer, type TransferStatus, type AttestationResponse } from '../types/cctp'
@@ -179,8 +179,8 @@ export const useCCTP = () => {
           destinationAddressBytes32,
           sourceContracts.usdc as `0x${string}`,
           destinationCallerBytes32,
-          transfer.maxFee || 0n,
-          1000, // minFinalityThreshold for fast transfer
+          transfer.useFastTransfer ? (transfer.maxFee || parseUnits('1', 6)) : 0n, // maxFee
+          transfer.useFastTransfer ? 1000 : 2000, // minFinalityThreshold
         ],
       }),
     })
@@ -292,22 +292,51 @@ export const useCCTP = () => {
       const sourceContracts = getContractsForChain(transfer.sourceChain as ChainId)
       const attestation = await retrieveAttestation(burnTx, sourceContracts.domain)
       
+      // Show attestation ready state briefly
       updateTransferStatus({ 
-        status: 'waiting_attestation', 
+        status: 'attestation_ready', 
         burnTxHash: burnTx, 
         attestation 
       })
 
-      // Mint USDC on destination chain
-      updateTransferStatus({ status: 'minting', burnTxHash: burnTx, attestation })
-      const mintTx = await mintUSDC(transfer.destinationChain as ChainId, attestation)
-      
-      updateTransferStatus({ 
-        status: 'completed', 
-        burnTxHash: burnTx, 
-        mintTxHash: mintTx, 
-        attestation 
-      })
+      // Auto-trigger minting after brief delay to show ready state
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      try {
+        // Mint USDC on destination chain
+        updateTransferStatus({ status: 'minting', burnTxHash: burnTx, attestation })
+        const mintTx = await mintUSDC(transfer.destinationChain as ChainId, attestation)
+        
+        updateTransferStatus({ 
+          status: 'completed', 
+          burnTxHash: burnTx, 
+          mintTxHash: mintTx, 
+          attestation 
+        })
+
+        // Update stored transfer
+        transferStorage.updateTransfer(burnTx, {
+          status: 'completed',
+          mintTxHash: mintTx,
+          completedAt: new Date().toISOString()
+        })
+      } catch (mintError) {
+        console.error('Auto-minting failed:', mintError)
+        updateTransferStatus({ 
+          status: 'attestation_ready', 
+          burnTxHash: burnTx, 
+          attestation,
+          error: 'Auto-redemption failed. Use "Redeem Now" to complete manually.'
+        })
+        
+        // Store the ready state so user can manually redeem later
+        transferStorage.updateTransfer(burnTx, {
+          status: 'attestation_ready',
+          attestation: attestation,
+          error: 'Auto-redemption failed'
+        })
+        return // Don't throw, let user manually redeem
+      }
 
     } catch (error) {
       let userFriendlyError = 'Unknown error occurred'
@@ -472,12 +501,50 @@ export const useCCTP = () => {
     }
   }, [retrieveAttestation, mintUSDC, currentChainId])
 
-  return {
+    const redeemTransfer = useCallback(async (burnTxHash: string, destinationChain: number, attestation: AttestationResponse) => {
+    try {
+      setCurrentTransferId(burnTxHash)
+      updateTransferStatus({ 
+        status: 'minting', 
+        burnTxHash, 
+        attestation 
+      })
+
+      const mintTx = await mintUSDC(destinationChain as ChainId, attestation)
+      
+      updateTransferStatus({ 
+        status: 'completed', 
+        burnTxHash, 
+        mintTxHash: mintTx, 
+        attestation 
+      })
+
+      // Update stored transfer
+      transferStorage.updateTransfer(burnTxHash, {
+        status: 'completed',
+        mintTxHash: mintTx,
+        completedAt: new Date().toISOString()
+      })
+
+      return mintTx
+    } catch (error) {
+      updateTransferStatus({ 
+        status: 'attestation_ready', 
+        burnTxHash, 
+        attestation,
+        error: error instanceof Error ? error.message : 'Redemption failed'
+      })
+      throw error
+    }
+  }, [mintUSDC, updateTransferStatus])
+
+return {
     transferUSDC,
     transferStatus,
     clearError,
     checkAllowance,
     manualMint,
     resumeTransfer,
+    redeemTransfer,
   }
 }

@@ -8,6 +8,13 @@ const CHAIN_NAMES = {
   8453: 'Base',
   10: 'Optimism',
   42161: 'Arbitrum',
+  43114: 'Avalanche',
+  137: 'Polygon',
+  59144: 'Linea',
+  130: 'Unichain',
+  480: 'World Chain',
+  1329: 'Sei',
+  146: 'Sonic',
 } as const
 
 export function ManualRecovery() {

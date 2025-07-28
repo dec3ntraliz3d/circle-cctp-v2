@@ -4,6 +4,7 @@ export interface CCTPTransfer {
   destinationChain: number
   destinationAddress: string
   maxFee?: bigint
+  useFastTransfer?: boolean
 }
 
 export interface AttestationResponse {
@@ -19,7 +20,7 @@ export interface TransferStatus {
   txHash?: string
   burnTxHash?: string
   mintTxHash?: string
-  status: 'idle' | 'switching_chain' | 'approving' | 'burning' | 'waiting_attestation' | 'minting' | 'completed' | 'error'
+  status: 'idle' | 'switching_chain' | 'approving' | 'burning' | 'waiting_attestation' | 'attestation_ready' | 'minting' | 'completed' | 'error'
   error?: string
   attestation?: AttestationResponse
 }

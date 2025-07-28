@@ -17,6 +17,7 @@ export function TransferForm() {
   const [destinationChain, setDestinationChain] = useState<ChainId>(8453) // Base
   const [amount, setAmount] = useState('')
   const [destinationAddress, setDestinationAddress] = useState('')
+  const [useFastTransfer, setUseFastTransfer] = useState(false)
 
   // Keep source chain in sync with wallet connection
   useEffect(() => {
@@ -54,6 +55,7 @@ export function TransferForm() {
         sourceChain,
         destinationChain,
         destinationAddress,
+        useFastTransfer,
       }
 
       await transferUSDC(transfer)
@@ -142,6 +144,28 @@ export function TransferForm() {
           </button>
         </div>
 
+        <div className="form-group">
+          <label className="fast-transfer-option">
+            <input
+              type="checkbox"
+              checked={useFastTransfer}
+              onChange={(e) => setUseFastTransfer(e.target.checked)}
+              disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
+            />
+            <span className="checkbox-label">
+              Fast Transfer (2-15 minutes)
+            </span>
+          </label>
+          <div className="transfer-info">
+            <div className="transfer-time">
+              {useFastTransfer ? (
+                <span className="fast-option">⚡ Fast: 2-15 minutes • Fee: ~0.01% (varies by network)</span>
+              ) : (
+                <span className="standard-option">🔒 Standard: 15-20 minutes • FREE</span>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="form-actions">
           <button 

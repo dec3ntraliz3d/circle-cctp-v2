@@ -9,6 +9,13 @@ const CHAIN_INFO = {
   8453: { name: 'Base', color: '#0052FF', icon: '🔵' }, 
   10: { name: 'Optimism', color: '#FF0420', icon: '🔴' },
   42161: { name: 'Arbitrum', color: '#2D374B', icon: '🔷' },
+  43114: { name: 'Avalanche', color: '#E84142', icon: '🔺' },
+  137: { name: 'Polygon', color: '#8247E5', icon: '🟣' },
+  59144: { name: 'Linea', color: '#121212', icon: '◼️' },
+  130: { name: 'Unichain', color: '#FF007A', icon: '🦄' },
+  480: { name: 'World Chain', color: '#000000', icon: '🌍' },
+  1329: { name: 'Sei', color: '#D42222', icon: '🔴' },
+  146: { name: 'Sonic', color: '#6366F1', icon: '💫' },
 } as const
 
 const STATUS_INFO = {
@@ -17,6 +24,7 @@ const STATUS_INFO = {
   approving: { color: '#667eea', text: 'Approving' },
   burning: { color: '#667eea', text: 'Burning' }, 
   waiting_attestation: { color: '#ed8936', text: 'Waiting (~20min)' },
+  attestation_ready: { color: '#38a169', text: 'Ready to Redeem!' },
   minting: { color: '#667eea', text: 'Minting' },
   completed: { color: '#38a169', text: 'Completed' },
   error: { color: '#e53e3e', text: 'Failed' },
@@ -24,7 +32,7 @@ const STATUS_INFO = {
 
 export function TransactionHistory() {
   const { address } = useAccount()
-  const { resumeTransfer, transferStatus } = useCCTP()
+  const { resumeTransfer, transferStatus, redeemTransfer } = useCCTP()
   const [transfers, setTransfers] = useState<StoredTransfer[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -38,6 +46,74 @@ export function TransactionHistory() {
     }
   }, [address])
 
+  // Check for attestations on pending transfers
+  useEffect(() => {
+    if (!address) return
+
+    const getDomainId = (chainId: number): string => {
+      const domainMap: Record<number, string> = {
+        1: '0',      // Ethereum
+        43114: '1',  // Avalanche  
+        10: '2',     // Optimism
+        42161: '3',  // Arbitrum
+        8453: '6',   // Base
+        137: '7',    // Polygon
+        130: '10',   // Unichain
+        59144: '11', // Linea
+        146: '13',   // Sonic
+        480: '14',   // World Chain
+        1329: '16'   // Sei
+      }
+      return domainMap[chainId] || '0'
+    }
+
+    const checkPendingAttestations = async () => {
+      const pendingTransfers = transfers.filter(t => 
+        t.status === 'waiting_attestation' && 
+        t.burnTxHash && 
+        !t.attestation
+      )
+
+      for (const transfer of pendingTransfers) {
+        try {
+          const domainId = getDomainId(transfer.sourceChain)
+          const response = await fetch(`https://iris-api.circle.com/v2/messages/${domainId}?transactionHash=${transfer.burnTxHash}`)
+          
+          if (response.ok) {
+            const data = await response.json()
+            const message = data?.messages?.[0]
+            
+            if (message?.status === 'complete' && message.attestation) {
+              // Update stored transfer with attestation
+              transferStorage.updateTransfer(transfer.burnTxHash!, {
+                status: 'attestation_ready',
+                attestation: {
+                  message: message.message,
+                  attestation: message.attestation,
+                  status: 'complete',
+                  eventNonce: message.eventNonce,
+                  cctpVersion: message.cctpVersion,
+                }
+              })
+              
+              // Refresh UI
+              setTransfers(transferStorage.getTransfers(address))
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check attestation for transfer:', transfer.id, error)
+        }
+      }
+    }
+
+    // Check immediately and then every 2 minutes for waiting transfers
+    if (transfers.some(t => t.status === 'waiting_attestation')) {
+      checkPendingAttestations()
+      const interval = setInterval(checkPendingAttestations, 120000)
+      return () => clearInterval(interval)
+    }
+  }, [address, transfers])
+
   const handleResumeTransfer = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash) {
       alert('Cannot resume transfer: No burn transaction hash found')
@@ -49,6 +125,22 @@ export function TransactionHistory() {
     } catch (error) {
       console.error('Failed to resume transfer:', error)
       alert(`Failed to resume transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleRedeemTransfer = async (transfer: StoredTransfer) => {
+    if (!transfer.burnTxHash || !transfer.attestation) {
+      alert('Cannot redeem transfer: Missing transaction hash or attestation')
+      return
+    }
+
+    try {
+      await redeemTransfer(transfer.burnTxHash, transfer.destinationChain, transfer.attestation)
+      // Refresh transfers after redeeming
+      setTransfers(transferStorage.getTransfers(address || ''))
+    } catch (error) {
+      console.error('Failed to redeem transfer:', error)
+      alert(`Failed to redeem transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -69,6 +161,13 @@ export function TransactionHistory() {
       8453: 'https://basescan.org/tx/',
       10: 'https://optimistic.etherscan.io/tx/',
       42161: 'https://arbiscan.io/tx/',
+      43114: 'https://snowtrace.io/tx/',
+      137: 'https://polygonscan.com/tx/',
+      59144: 'https://lineascan.build/tx/',
+      130: 'https://uniscan.xyz/tx/',
+      480: 'https://worldscan.org/tx/',
+      1329: 'https://seitrace.com/tx/',
+      146: 'https://sonicscan.org/tx/',
     }
     return `${explorers[chainId as keyof typeof explorers] || 'https://etherscan.io/tx/'}${txHash}`
   }
@@ -154,15 +253,25 @@ export function TransactionHistory() {
                           <span className="transfer-time">{formatTime(transfer.updatedAt)}</span>
                         </div>
 
-                        {transfer.status === 'waiting_attestation' && transfer.burnTxHash && (
+                        {(transfer.status === 'waiting_attestation' || transfer.status === 'attestation_ready') && transfer.burnTxHash && (
                           <div className="transfer-actions">
-                            <button
-                              onClick={() => handleResumeTransfer(transfer)}
-                              disabled={transferStatus.status !== 'idle'}
-                              className="resume-btn"
-                            >
-                              ▶ Resume Transfer
-                            </button>
+                            {transfer.status === 'attestation_ready' && transfer.attestation ? (
+                              <button
+                                onClick={() => handleRedeemTransfer(transfer)}
+                                disabled={transferStatus.status !== 'idle'}
+                                className="resume-btn redeem-btn"
+                              >
+                                ⚡ Redeem Now
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleResumeTransfer(transfer)}
+                                disabled={transferStatus.status !== 'idle'}
+                                className="resume-btn"
+                              >
+                                ▶ Resume Transfer
+                              </button>
+                            )}
                           </div>
                         )}
 
