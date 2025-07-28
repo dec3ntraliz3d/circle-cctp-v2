@@ -11,13 +11,14 @@ import type { ChainId } from '../config/cctp'
 export function TransferForm() {
   const { address, isConnected } = useAccount()
   const currentChainId = useChainId()
-  const { transferUSDC, transferStatus, clearError } = useCCTP()
+  const { transferUSDC, transferStatus, clearError, redeemTransfer } = useCCTP()
   
   const [sourceChain, setSourceChain] = useState<ChainId>(currentChainId as ChainId || 1)
   const [destinationChain, setDestinationChain] = useState<ChainId>(8453) // Base
   const [amount, setAmount] = useState('')
   const [destinationAddress, setDestinationAddress] = useState('')
   const [useFastTransfer, setUseFastTransfer] = useState(false)
+  const [formError, setFormError] = useState('')
 
   // Keep source chain in sync with wallet connection
   useEffect(() => {
@@ -33,19 +34,20 @@ export function TransferForm() {
     if (transferStatus.status === 'error') {
       clearError()
     }
+    setFormError('')
     
     if (!isConnected || !address) {
-      alert('Please connect your wallet')
+      setFormError('Please connect your wallet')
       return
     }
 
     if (!amount || !destinationAddress) {
-      alert('Please fill in all required fields')
+      setFormError('Please fill in all required fields')
       return
     }
 
     if (sourceChain === destinationChain) {
-      alert('Source and destination chains must be different')
+      setFormError('Source and destination chains must be different')
       return
     }
 
@@ -66,6 +68,18 @@ export function TransferForm() {
 
   const handleClearError = () => {
     clearError()
+  }
+
+  const handleRedeem = async () => {
+    if (!transferStatus.burnTxHash || !transferStatus.attestation) {
+      return
+    }
+
+    try {
+      await redeemTransfer(transferStatus.burnTxHash, destinationChain, transferStatus.attestation)
+    } catch (error) {
+      console.error('Redeem failed:', error)
+    }
   }
 
   const handleSourceChainChange = (chainId: number) => {
@@ -167,14 +181,40 @@ export function TransferForm() {
           </div>
         </div>
 
+        {formError && (
+          <div style={{
+            padding: '0.75rem',
+            background: '#fed7d7',
+            border: '1px solid #feb2b2',
+            borderRadius: '6px',
+            color: '#c53030',
+            fontSize: '0.875rem',
+            marginBottom: '1rem'
+          }}>
+            {formError}
+          </div>
+        )}
+
         <div className="form-actions">
-          <button 
-            type="submit" 
-            className="transfer-btn"
-            disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
-          >
-            {transferStatus.status === 'idle' || transferStatus.status === 'error' ? 'Transfer USDC' : 'Transfer in Progress...'}
-          </button>
+          {transferStatus.status === 'attestation_ready' ? (
+            <button 
+              type="button"
+              onClick={handleRedeem}
+              className="transfer-btn"
+              disabled={false}
+              style={{ background: '#38a169' }}
+            >
+              ⚡ Redeem Now
+            </button>
+          ) : (
+            <button 
+              type="submit" 
+              className="transfer-btn"
+              disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
+            >
+              {transferStatus.status === 'idle' || transferStatus.status === 'error' ? 'Transfer USDC' : 'Transfer in Progress...'}
+            </button>
+          )}
         </div>
       </form>
 

@@ -297,12 +297,13 @@ export const useCCTP = () => {
 
   const mintUSDC = useCallback(async (
     chainId: ChainId,
-    attestation: AttestationResponse
+    attestation: AttestationResponse,
+    skipChainCheck = false
   ): Promise<string> => {
     if (!walletClient) throw new Error('Wallet not connected')
 
-    // Verify we're on the correct destination chain
-    if (currentChainId !== chainId) {
+    // Only verify chain if we didn't just switch (to avoid React state lag)
+    if (!skipChainCheck && currentChainId !== chainId) {
       throw new Error(`Please switch to the destination chain (${chainId}) before minting`)
     }
 
@@ -564,12 +565,15 @@ export const useCCTP = () => {
     try {
       setCurrentTransferId(burnTxHash)
       
+      let chainWasSwitched = false
+      
       // Auto-switch to destination chain if not already there
       if (currentChainId !== destinationChain && walletClient) {
         try {
           await walletClient.switchChain({ id: destinationChain })
+          chainWasSwitched = true
           // Wait a moment for the chain switch to complete
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          await new Promise(resolve => setTimeout(resolve, 1500))
         } catch (switchError) {
           throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
         }
@@ -581,7 +585,8 @@ export const useCCTP = () => {
         attestation 
       })
 
-      const mintTx = await mintUSDC(destinationChain as ChainId, attestation)
+      // Pass chainWasSwitched flag to mintUSDC to skip chain verification
+      const mintTx = await mintUSDC(destinationChain as ChainId, attestation, chainWasSwitched)
       
       updateTransferStatus({ 
         status: 'completed', 

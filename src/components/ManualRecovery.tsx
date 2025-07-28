@@ -28,21 +28,27 @@ export function ManualRecovery() {
   const [sourceChain, setSourceChain] = useState(8453) // Default to Base
   const [destinationChain, setDestinationChain] = useState(42161) // Default to Arbitrum
   const [isRecovering, setIsRecovering] = useState(false)
+  const [statusMessage, setStatusMessage] = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('')
 
   const supportedChains = getSupportedChains()
 
   const handleRecover = async () => {
     if (!burnTxHash.trim()) {
-      alert('Please enter the burn transaction hash')
+      setStatusMessage('Please enter the burn transaction hash')
+      setMessageType('error')
       return
     }
 
     if (!isConnected || !address) {
-      alert('Please connect your wallet')
+      setStatusMessage('Please connect your wallet')
+      setMessageType('error')
       return
     }
 
     setIsRecovering(true)
+    setStatusMessage('')
+    setMessageType('')
     
     try {
       // Switch to destination chain if needed
@@ -59,9 +65,14 @@ export function ManualRecovery() {
       }
 
       await manualMint(burnTxHash.trim(), sourceChain, destinationChain)
-      alert('Recovery successful! Your USDC has been minted.')
+      setStatusMessage('Recovery successful! Your USDC has been minted.')
+      setMessageType('success')
       setBurnTxHash('')
-      setIsExpanded(false)
+      setTimeout(() => {
+        setIsExpanded(false)
+        setStatusMessage('')
+        setMessageType('')
+      }, 3000)
     } catch (error) {
       console.error('Recovery failed:', error)
       
@@ -70,12 +81,8 @@ export function ManualRecovery() {
         errorMessage = error.message
       }
       
-      // Show user-friendly message for chain mismatch
-      if (errorMessage.includes('switch to the destination chain')) {
-        alert(`${errorMessage}\n\nPlease manually switch to the destination chain in your wallet and try again.`)
-      } else {
-        alert(`Recovery failed: ${errorMessage}`)
-      }
+      setStatusMessage(`Recovery failed: ${errorMessage}`)
+      setMessageType('error')
     } finally {
       setIsRecovering(false)
     }
@@ -162,6 +169,20 @@ export function ManualRecovery() {
                 {isRecovering ? 'Recovering...' : 'Recover USDC'}
               </button>
             </div>
+
+            {statusMessage && (
+              <div style={{
+                padding: '0.75rem',
+                background: messageType === 'success' ? '#f0fff4' : '#fed7d7',
+                border: `1px solid ${messageType === 'success' ? '#c6f6d5' : '#feb2b2'}`,
+                borderRadius: '6px',
+                color: messageType === 'success' ? '#22543d' : '#c53030',
+                fontSize: '0.875rem',
+                marginTop: '1rem'
+              }}>
+                {statusMessage}
+              </div>
+            )}
 
             {currentChainId !== destinationChain && (
               <p className="recovery-warning">
