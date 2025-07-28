@@ -77,6 +77,11 @@ export function TransferForm() {
 
     try {
       await redeemTransfer(transferStatus.burnTxHash, destinationChain, transferStatus.attestation)
+      // Reset form after successful redemption
+      setAmount('')
+      setDestinationAddress('')
+      setUseFastTransfer(false)
+      setFormError('')
     } catch (error) {
       console.error('Redeem failed:', error)
     }

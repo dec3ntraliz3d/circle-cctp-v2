@@ -463,6 +463,12 @@ export const useCCTP = () => {
         attestation 
       })
 
+      // Reset transfer status after showing success briefly  
+      setTimeout(() => {
+        setTransferStatus({ status: 'idle' })
+        setCurrentTransferId(null)
+      }, 3000)
+
     } catch (error) {
       let userFriendlyError = 'Resume failed'
       
@@ -570,10 +576,23 @@ export const useCCTP = () => {
       // Auto-switch to destination chain if not already there
       if (currentChainId !== destinationChain && walletClient) {
         try {
+          updateTransferStatus({ 
+            status: 'switching_chain', 
+            burnTxHash, 
+            attestation 
+          })
+          
           await walletClient.switchChain({ id: destinationChain })
           chainWasSwitched = true
-          // Wait a moment for the chain switch to complete
-          await new Promise(resolve => setTimeout(resolve, 1500))
+          
+          // Wait longer for chain switch to complete and be confirmed by wallet
+          await new Promise(resolve => setTimeout(resolve, 3000))
+          
+          // Verify the switch was successful by checking the wallet's chain
+          const currentWalletChain = await walletClient.getChainId()
+          if (currentWalletChain !== destinationChain) {
+            throw new Error(`Chain switch failed. Please manually switch to ${getChainName(destinationChain)} and try again.`)
+          }
         } catch (switchError) {
           throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
         }
@@ -601,6 +620,12 @@ export const useCCTP = () => {
         mintTxHash: mintTx,
         completedAt: new Date().toISOString()
       })
+
+      // Reset transfer status after a brief delay to show success
+      setTimeout(() => {
+        setTransferStatus({ status: 'idle' })
+        setCurrentTransferId(null)
+      }, 3000)
 
       return mintTx
     } catch (error) {
