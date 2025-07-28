@@ -339,7 +339,11 @@ export const useCCTP = () => {
       // Check if user has sufficient balance
       const hasBalance = await checkBalance(transfer.sourceChain as ChainId, transferAmount)
       if (!hasBalance) {
-        throw new Error('Insufficient USDC balance to complete this transfer')
+        updateTransferStatus({ 
+          status: 'error', 
+          error: 'Insufficient USDC balance. Please add more USDC to your wallet and try again.' 
+        })
+        return // Don't throw, just set error status
       }
 
       // Check if approval is needed
@@ -380,44 +384,18 @@ export const useCCTP = () => {
         attestation 
       })
 
-      // Auto-trigger minting after brief delay to show ready state
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      // Don't auto-redeem - let user click redeem button manually
+      updateTransferStatus({ 
+        status: 'attestation_ready', 
+        burnTxHash: burnTx, 
+        attestation 
+      })
 
-      try {
-        // Mint USDC on destination chain
-        updateTransferStatus({ status: 'minting', burnTxHash: burnTx, attestation })
-        const mintTx = await mintUSDC(transfer.destinationChain as ChainId, attestation)
-        
-        updateTransferStatus({ 
-          status: 'completed', 
-          burnTxHash: burnTx, 
-          mintTxHash: mintTx, 
-          attestation 
-        })
-
-        // Update stored transfer
-        transferStorage.updateTransfer(burnTx, {
-          status: 'completed',
-          mintTxHash: mintTx,
-          completedAt: new Date().toISOString()
-        })
-      } catch (mintError) {
-        console.error('Auto-minting failed:', mintError)
-        updateTransferStatus({ 
-          status: 'attestation_ready', 
-          burnTxHash: burnTx, 
-          attestation,
-          error: 'Auto-redemption failed. Use "Redeem Now" to complete manually.'
-        })
-        
-        // Store the ready state so user can manually redeem later
-        transferStorage.updateTransfer(burnTx, {
-          status: 'attestation_ready',
-          attestation: attestation,
-          error: 'Auto-redemption failed'
-        })
-        return // Don't throw, let user manually redeem
-      }
+      // Update stored transfer to show ready for redemption
+      transferStorage.updateTransfer(burnTx, {
+        status: 'attestation_ready',
+        attestation: attestation
+      })
 
     } catch (error) {
       let userFriendlyError = 'Unknown error occurred'

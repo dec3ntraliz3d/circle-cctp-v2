@@ -107,46 +107,8 @@ export function TransactionHistory() {
               attestation: attestationData
             })
 
-            // Refresh UI to show attestation ready
+            // Refresh UI to show attestation ready for manual redemption
             setTransfers(transferStorage.getTransfers(address!))
-
-            // Auto-trigger redemption after short delay - only if not already minted
-            setTimeout(async () => {
-              try {
-                // Check if transfer is still in attestation_ready state
-                const currentTransfer = transferStorage.getTransfer(transfer.id)
-                if (currentTransfer?.status !== 'attestation_ready') {
-                  console.log('Transfer already processed, skipping auto-redemption')
-                  return
-                }
-
-                console.log('Auto-triggering redemption for transfer:', transfer.id)
-                
-                // Show auto-redemption starting message
-                transferStorage.updateTransfer(transfer.burnTxHash!, {
-                  status: 'attestation_ready',
-                  attestation: attestationData,
-                  error: 'Auto-redemption starting...'
-                })
-                setTransfers(transferStorage.getTransfers(address!))
-                
-                await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
-                console.log('Auto-redemption successful for transfer:', transfer.id)
-                
-                // Refresh UI after successful auto-redemption
-                setTransfers(transferStorage.getTransfers(address!))
-                console.log('Auto-redemption successful for transfer:', transfer.id)
-              } catch (error) {
-                console.log('Auto-redemption failed, user can redeem manually:', error)
-                // Update storage to show redemption failed but attestation is still ready
-                transferStorage.updateTransfer(transfer.burnTxHash!, {
-                  status: 'attestation_ready',
-                  attestation: attestationData,
-                  error: 'Auto-redemption failed. Click "Redeem Now" to try again.'
-                })
-                setTransfers(transferStorage.getTransfers(address!))
-              }
-            }, 3000) // 3 second delay to let UI update and allow chain switching
           } else if (message?.status === 'pending_confirmations') {
             // Still waiting - update to waiting_attestation
             transferStorage.updateTransfer(transfer.burnTxHash!, {
@@ -210,45 +172,8 @@ export function TransactionHistory() {
                 attestation: attestationData
               })
               
-              // Refresh UI
+              // Refresh UI to show attestation ready for manual redemption
               setTransfers(transferStorage.getTransfers(address))
-
-              // Auto-trigger redemption after short delay - only if not already minted
-              setTimeout(async () => {
-                try {
-                  // Check if transfer is still in attestation_ready state
-                  const currentTransfer = transferStorage.getTransfer(transfer.id)
-                  if (currentTransfer?.status !== 'attestation_ready') {
-                    console.log('Transfer already processed, skipping auto-redemption')
-                    return
-                  }
-
-                  console.log('Auto-triggering redemption for transfer:', transfer.id)
-                  
-                  // Show auto-redemption starting message
-                  transferStorage.updateTransfer(transfer.burnTxHash!, {
-                    status: 'attestation_ready',
-                    attestation: attestationData,
-                    error: 'Auto-redemption starting...'
-                  })
-                  setTransfers(transferStorage.getTransfers(address))
-                  
-                  await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
-                  console.log('Auto-redemption successful for transfer:', transfer.id)
-                  
-                  // Refresh UI after successful auto-redemption
-                  setTransfers(transferStorage.getTransfers(address))
-                } catch (error) {
-                  console.log('Auto-redemption failed, user can redeem manually:', error)
-                  // Update storage to show redemption failed but attestation is still ready
-                  transferStorage.updateTransfer(transfer.burnTxHash!, {
-                    status: 'attestation_ready',
-                    attestation: attestationData,
-                    error: 'Auto-redemption failed. Click "Redeem Now" to try again.'
-                  })
-                  setTransfers(transferStorage.getTransfers(address))
-                }
-              }, 3000) // 3 second delay to let UI update and allow chain switching
             }
           }
         } catch (error) {
@@ -283,7 +208,10 @@ export function TransactionHistory() {
 
   const handleResumeTransfer = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash) {
-      alert('Cannot resume transfer: No burn transaction hash found')
+      transferStorage.updateTransfer(transfer.id, {
+        error: 'Cannot resume transfer: No transaction hash found'
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
       return
     }
 
@@ -291,13 +219,19 @@ export function TransactionHistory() {
       await resumeTransfer(transfer.id, transfer.burnTxHash, transfer.sourceChain, transfer.destinationChain)
     } catch (error) {
       console.error('Failed to resume transfer:', error)
-      alert(`Failed to resume transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      transferStorage.updateTransfer(transfer.burnTxHash, {
+        error: `Resume failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
     }
   }
 
   const handleRedeemTransfer = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash || !transfer.attestation) {
-      alert('Cannot redeem transfer: Missing transaction hash or attestation')
+      transferStorage.updateTransfer(transfer.id, {
+        error: 'Cannot redeem: Missing transaction data'
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
       return
     }
 
@@ -307,13 +241,19 @@ export function TransactionHistory() {
       setTransfers(transferStorage.getTransfers(address || ''))
     } catch (error) {
       console.error('Failed to redeem transfer:', error)
-      alert(`Failed to redeem transfer: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      transferStorage.updateTransfer(transfer.burnTxHash, {
+        error: `Redemption failed: ${error instanceof Error ? error.message : 'Please try again'}`
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
     }
   }
 
   const handleCheckStatus = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash) {
-      alert('Cannot check status: No burn transaction hash found')
+      transferStorage.updateTransfer(transfer.id, {
+        error: 'Cannot check status: No transaction hash found'
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
       return
     }
 
@@ -335,34 +275,41 @@ export function TransactionHistory() {
               status: 'complete',
               eventNonce: message.eventNonce,
               cctpVersion: message.cctpVersion,
-            }
+            },
+            error: 'Attestation ready! Click "Redeem Now" to complete your transfer.'
           })
-          
-          // Refresh UI
           setTransfers(transferStorage.getTransfers(address!))
-          alert('Status updated! Attestation is ready for redemption.')
         } else if (message?.status === 'pending_confirmations') {
-          // Update to waiting attestation status
           transferStorage.updateTransfer(transfer.burnTxHash, {
-            status: 'waiting_attestation'
+            status: 'waiting_attestation',
+            error: 'Transfer confirmed on blockchain. Waiting for attestation (~20 minutes).'
           })
           setTransfers(transferStorage.getTransfers(address!))
-          alert('Transfer found on blockchain. Still waiting for attestation (~20 minutes).')
         } else {
-          alert('Transfer not found or still processing. Please wait and try again.')
+          transferStorage.updateTransfer(transfer.burnTxHash, {
+            error: 'Transfer still processing. Please wait and check again later.'
+          })
+          setTransfers(transferStorage.getTransfers(address!))
         }
       } else {
-        alert('Unable to check transfer status. Please try again later.')
+        transferStorage.updateTransfer(transfer.burnTxHash, {
+          error: 'Unable to check status. Please try again later.'
+        })
+        setTransfers(transferStorage.getTransfers(address!))
       }
     } catch (error) {
       console.error('Failed to check transfer status:', error)
-      alert('Failed to check status. Please try again.')
+      transferStorage.updateTransfer(transfer.burnTxHash, {
+        error: 'Status check failed. Please try again.'
+      })
+      setTransfers(transferStorage.getTransfers(address!))
     }
   }
 
   const handleClearHistory = () => {
     if (!address) return
     
+    // For now, require double-click to clear (can be improved with a modal later)
     const confirmation = confirm('Are you sure you want to clear all transaction history? This action cannot be undone.')
     if (confirmation) {
       transferStorage.clearTransfers(address)
@@ -526,7 +473,7 @@ export function TransactionHistory() {
                           </div>
                         </div>
 
-                        {transfer.burnTxHash && (
+                        {transfer.burnTxHash && transfer.status !== 'completed' && (
                           <div className="transfer-actions">
                             {transfer.status === 'attestation_ready' && transfer.attestation ? (
                               <button
@@ -554,6 +501,20 @@ export function TransactionHistory() {
                                 🔍 Check Status
                               </button>
                             )}
+                          </div>
+                        )}
+
+                        {transfer.error && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: '#fed7d7',
+                            border: '1px solid #feb2b2',
+                            borderRadius: '6px',
+                            color: '#c53030',
+                            fontSize: '0.875rem',
+                            marginBottom: '1rem'
+                          }}>
+                            {transfer.error}
                           </div>
                         )}
 
@@ -638,6 +599,20 @@ export function TransactionHistory() {
                             </button>
                           </div>
                         </div>
+
+                        {transfer.error && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: '#fed7d7',
+                            border: '1px solid #feb2b2',
+                            borderRadius: '6px',
+                            color: '#c53030',
+                            fontSize: '0.875rem',
+                            marginBottom: '1rem'
+                          }}>
+                            {transfer.error}
+                          </div>
+                        )}
 
                         <div className="tx-links">
                           {transfer.burnTxHash && (
