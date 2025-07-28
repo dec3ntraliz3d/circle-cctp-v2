@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { parseUnits } from 'viem'
+import { parseUnits, formatUnits } from 'viem'
 import { useAccount, useChainId } from 'wagmi'
 import { useCCTP } from '../hooks/useCCTP'
 import { NetworkSelector } from './NetworkSelector'
@@ -11,7 +11,7 @@ import type { ChainId } from '../config/cctp'
 export function TransferForm() {
   const { address, isConnected } = useAccount()
   const currentChainId = useChainId()
-  const { transferUSDC, transferStatus, clearError, redeemTransfer } = useCCTP()
+  const { transferUSDC, transferStatus, clearError, redeemTransfer, getUSDCBalance } = useCCTP()
   
   const [sourceChain, setSourceChain] = useState<ChainId>(currentChainId as ChainId || 1)
   const [destinationChain, setDestinationChain] = useState<ChainId>(8453) // Base
@@ -19,6 +19,7 @@ export function TransferForm() {
   const [destinationAddress, setDestinationAddress] = useState('')
   const [useFastTransfer, setUseFastTransfer] = useState(false)
   const [formError, setFormError] = useState('')
+  const [usdcBalance, setUsdcBalance] = useState<bigint | null>(null)
 
   // Keep source chain in sync with wallet connection
   useEffect(() => {
@@ -26,6 +27,24 @@ export function TransferForm() {
       setSourceChain(currentChainId as ChainId)
     }
   }, [currentChainId])
+
+  // Fetch USDC balance when source chain or address changes
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (address && sourceChain) {
+        try {
+          const balance = await getUSDCBalance(sourceChain)
+          setUsdcBalance(balance)
+        } catch (error) {
+          setUsdcBalance(null)
+        }
+      } else {
+        setUsdcBalance(null)
+      }
+    }
+
+    fetchBalance()
+  }, [address, sourceChain, getUSDCBalance])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,6 +106,12 @@ export function TransferForm() {
     }
   }
 
+  const handleMaxClick = () => {
+    if (usdcBalance) {
+      setAmount(formatUnits(usdcBalance, 6))
+    }
+  }
+
   const handleSourceChainChange = (chainId: number) => {
     // TypeScript-safe way to update the source chain
     setSourceChain(chainId as ChainId)
@@ -131,16 +156,51 @@ export function TransferForm() {
 
         <div className="form-group">
           <label htmlFor="amount">Amount (USDC)</label>
-          <input
-            id="amount"
-            type="number"
-            step="0.000001"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.0"
-            disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              id="amount"
+              type="number"
+              step="0.000001"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.0"
+              disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
+              style={{ paddingRight: '4rem' }}
+            />
+            {usdcBalance !== null && (
+              <button
+                type="button"
+                onClick={handleMaxClick}
+                disabled={transferStatus.status !== 'idle' && transferStatus.status !== 'error'}
+                style={{
+                  position: 'absolute',
+                  right: '0.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500'
+                }}
+              >
+                MAX
+              </button>
+            )}
+          </div>
+          {usdcBalance !== null && (
+            <div style={{
+              fontSize: '0.875rem',
+              color: '#666',
+              marginTop: '0.25rem'
+            }}>
+              Balance: {formatUnits(usdcBalance, 6)} USDC
+            </div>
+          )}
         </div>
 
         <div className="form-group">

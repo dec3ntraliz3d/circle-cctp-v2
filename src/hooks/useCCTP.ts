@@ -162,6 +162,28 @@ export const useCCTP = () => {
     }
   }, [currentTransferId, address])
 
+  const getUSDCBalance = useCallback(async (
+    chainId: ChainId
+  ): Promise<bigint | null> => {
+    if (!address || !publicClient) return null
+
+    const contracts = getContractsForChain(chainId)
+    
+    try {
+      const balance = await publicClient.readContract({
+        address: contracts.usdc as `0x${string}`,
+        abi: USDC_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      })
+      
+      return balance
+    } catch (error) {
+      console.error('Error getting balance:', error)
+      return null
+    }
+  }, [address, publicClient])
+
   const checkBalance = useCallback(async (
     chainId: ChainId,
     amount: bigint
@@ -648,6 +670,7 @@ return {
     clearError,
     checkAllowance,
     checkBalance,
+    getUSDCBalance,
     manualMint,
     resumeTransfer,
     redeemTransfer,

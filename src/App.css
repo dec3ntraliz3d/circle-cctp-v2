@@ -134,7 +134,7 @@ body {
 .fast-transfer-option {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
   cursor: pointer;
   margin-bottom: 0.5rem;
 }
