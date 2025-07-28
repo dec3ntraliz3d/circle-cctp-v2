@@ -20,14 +20,14 @@ const CHAIN_INFO = {
 
 const STATUS_INFO = {
   idle: { color: '#a0aec0', text: 'Idle' },
-  switching_chain: { color: '#667eea', text: 'Switching' },
-  approving: { color: '#667eea', text: 'Approving' },
-  burning: { color: '#667eea', text: 'Burning' }, 
-  waiting_attestation: { color: '#ed8936', text: 'Waiting (~20min)' },
+  switching_chain: { color: '#667eea', text: 'Switching Chain' },
+  approving: { color: '#667eea', text: 'Approving USDC' },
+  burning: { color: '#667eea', text: 'Burning on Source' }, 
+  waiting_attestation: { color: '#ed8936', text: 'Awaiting Attestation (~20min)' },
   attestation_ready: { color: '#38a169', text: 'Ready to Redeem!' },
-  minting: { color: '#667eea', text: 'Minting' },
-  completed: { color: '#38a169', text: 'Completed' },
-  error: { color: '#e53e3e', text: 'Failed' },
+  minting: { color: '#667eea', text: 'Minting on Destination' },
+  completed: { color: '#38a169', text: 'Transfer Complete' },
+  error: { color: '#e53e3e', text: 'Transfer Failed' },
 } as const
 
 export function TransactionHistory() {
@@ -60,8 +60,76 @@ export function TransactionHistory() {
       
       // Cleanup old transfers
       transferStorage.cleanup()
+      
+      // Auto-recover stuck transfers
+      recoverStuckTransfers(userTransfers)
     }
   }, [address])
+
+  const recoverStuckTransfers = async (transfers: StoredTransfer[]) => {
+    const stuckTransfers = transfers.filter(t => {
+      const ageInHours = (Date.now() - t.updatedAt) / (1000 * 60 * 60)
+      
+      // Consider transfers stuck if they're in intermediate states for >30 minutes
+      const isStuck = (
+        (t.status === 'approving' || t.status === 'burning' || t.status === 'switching_chain') &&
+        ageInHours > 0.5
+      ) || (
+        // Or waiting for attestation for >2 hours (should normally take ~20 min)
+        t.status === 'waiting_attestation' && ageInHours > 2
+      )
+      
+      return isStuck && t.burnTxHash // Only try recovery if we have a burn transaction
+    })
+
+    for (const transfer of stuckTransfers) {
+      try {
+        // Try to get attestation for stuck transfers
+        const domainId = getDomainId(transfer.sourceChain)
+        const response = await fetch(`https://iris-api.circle.com/v2/messages/${domainId}?transactionHash=${transfer.burnTxHash}`)
+        
+        if (response.ok) {
+          const data = await response.json()
+          const message = data?.messages?.[0]
+          
+          if (message?.status === 'complete' && message.attestation) {
+            // Attestation is ready - update status
+            transferStorage.updateTransfer(transfer.burnTxHash!, {
+              status: 'attestation_ready',
+              attestation: {
+                message: message.message,
+                attestation: message.attestation,
+                status: 'complete',
+                eventNonce: message.eventNonce,
+                cctpVersion: message.cctpVersion,
+              }
+            })
+          } else if (message?.status === 'pending_confirmations') {
+            // Still waiting - update to waiting_attestation
+            transferStorage.updateTransfer(transfer.burnTxHash!, {
+              status: 'waiting_attestation'
+            })
+          } else if (!message) {
+            // No message found - likely failed
+            const ageInHours = (Date.now() - transfer.updatedAt) / (1000 * 60 * 60)
+            if (ageInHours > 4) {
+              transferStorage.updateTransfer(transfer.burnTxHash!, {
+                status: 'error',
+                error: 'Transfer appears to have failed or was not found on Circle\'s network'
+              })
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to recover stuck transfer:', transfer.id, error)
+      }
+    }
+
+    // Refresh transfers if any were updated
+    if (stuckTransfers.length > 0) {
+      setTransfers(transferStorage.getTransfers(address!))
+    }
+  }
 
   // Check for attestations on pending transfers
   useEffect(() => {
@@ -112,6 +180,22 @@ export function TransactionHistory() {
       checkPendingAttestations()
       const interval = setInterval(checkPendingAttestations, 120000)
       return () => clearInterval(interval)
+    }
+
+    // Also run recovery check every 5 minutes for stuck transfers
+    const hasStuckTransfers = transfers.some(t => {
+      const ageInHours = (Date.now() - t.updatedAt) / (1000 * 60 * 60)
+      return (
+        (t.status === 'approving' || t.status === 'burning' || t.status === 'switching_chain') &&
+        ageInHours > 0.5
+      ) || (
+        t.status === 'waiting_attestation' && ageInHours > 2
+      )
+    })
+
+    if (hasStuckTransfers) {
+      const recoveryInterval = setInterval(() => recoverStuckTransfers(transfers), 300000) // 5 minutes
+      return () => clearInterval(recoveryInterval)
     }
   }, [address, transfers])
 

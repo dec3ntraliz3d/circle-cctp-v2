@@ -282,7 +282,7 @@ export const useCCTP = () => {
       }
 
       updateTransferStatus({ status: 'approving' })
-      saveTransferState(transferId, transfer, { status: 'approving' })
+      // Don't save to history yet - wait until burn transaction succeeds
 
       // Calculate total amount needed (transfer amount + fee for fast transfers)
       const feeAmount = transfer.useFastTransfer ? calculateFastTransferFee(transfer.amount, transfer.sourceChain) : 0n
@@ -310,6 +310,9 @@ export const useCCTP = () => {
       if (publicClient) {
         await publicClient.waitForTransactionReceipt({ hash: burnTx as `0x${string}` })
       }
+
+      // Now save to history - we have a concrete burn transaction to track
+      saveTransferState(transferId, transfer, { status: 'waiting_attestation', burnTxHash: burnTx })
 
       // Wait for attestation (this can take up to 20 minutes)
       updateTransferStatus({ status: 'waiting_attestation', burnTxHash: burnTx })
