@@ -93,17 +93,42 @@ export function TransactionHistory() {
           const message = data?.messages?.[0]
           
           if (message?.status === 'complete' && message.attestation) {
-            // Attestation is ready - update status
+            // Attestation is ready - update status and trigger auto-redemption
+            const attestationData = {
+              message: message.message,
+              attestation: message.attestation,
+              status: 'complete' as const,
+              eventNonce: message.eventNonce,
+              cctpVersion: message.cctpVersion,
+            }
+
             transferStorage.updateTransfer(transfer.burnTxHash!, {
               status: 'attestation_ready',
-              attestation: {
-                message: message.message,
-                attestation: message.attestation,
-                status: 'complete',
-                eventNonce: message.eventNonce,
-                cctpVersion: message.cctpVersion,
-              }
+              attestation: attestationData
             })
+
+            // Refresh UI to show attestation ready
+            setTransfers(transferStorage.getTransfers(address!))
+
+            // Auto-trigger redemption after short delay
+            setTimeout(async () => {
+              try {
+                console.log('Auto-triggering redemption for transfer:', transfer.id)
+                await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
+                // Refresh UI after successful auto-redemption
+                setTransfers(transferStorage.getTransfers(address!))
+                console.log('Auto-redemption successful for transfer:', transfer.id)
+              } catch (error) {
+                console.log('Auto-redemption failed, user can redeem manually:', error)
+                // Update storage to show redemption failed but attestation is still ready
+                transferStorage.updateTransfer(transfer.burnTxHash!, {
+                  status: 'attestation_ready',
+                  attestation: attestationData,
+                  error: 'Auto-redemption failed. Click "Redeem Now" to try again.'
+                })
+                setTransfers(transferStorage.getTransfers(address!))
+              }
+            }, 2000) // 2 second delay to let UI update
           } else if (message?.status === 'pending_confirmations') {
             // Still waiting - update to waiting_attestation
             transferStorage.updateTransfer(transfer.burnTxHash!, {
@@ -154,19 +179,41 @@ export function TransactionHistory() {
             
             if (message?.status === 'complete' && message.attestation) {
               // Update stored transfer with attestation
+              const attestationData = {
+                message: message.message,
+                attestation: message.attestation,
+                status: 'complete' as const,
+                eventNonce: message.eventNonce,
+                cctpVersion: message.cctpVersion,
+              }
+
               transferStorage.updateTransfer(transfer.burnTxHash!, {
                 status: 'attestation_ready',
-                attestation: {
-                  message: message.message,
-                  attestation: message.attestation,
-                  status: 'complete',
-                  eventNonce: message.eventNonce,
-                  cctpVersion: message.cctpVersion,
-                }
+                attestation: attestationData
               })
               
               // Refresh UI
               setTransfers(transferStorage.getTransfers(address))
+
+              // Auto-trigger redemption after short delay
+              setTimeout(async () => {
+                try {
+                  console.log('Auto-triggering redemption for transfer:', transfer.id)
+                  await redeemTransfer(transfer.burnTxHash!, transfer.destinationChain, attestationData)
+                  // Refresh UI after successful auto-redemption
+                  setTransfers(transferStorage.getTransfers(address))
+                  console.log('Auto-redemption successful for transfer:', transfer.id)
+                } catch (error) {
+                  console.log('Auto-redemption failed, user can redeem manually:', error)
+                  // Update storage to show redemption failed but attestation is still ready
+                  transferStorage.updateTransfer(transfer.burnTxHash!, {
+                    status: 'attestation_ready',
+                    attestation: attestationData,
+                    error: 'Auto-redemption failed. Click "Redeem Now" to try again.'
+                  })
+                  setTransfers(transferStorage.getTransfers(address))
+                }
+              }, 2000) // 2 second delay to let UI update
             }
           }
         } catch (error) {

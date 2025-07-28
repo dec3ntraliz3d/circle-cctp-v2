@@ -88,6 +88,23 @@ export const useCCTP = () => {
     return (amount * BigInt(feeRateBps)) / BigInt(10000) // Convert basis points to percentage
   }, [])
 
+  const getChainName = useCallback((chainId: number): string => {
+    const chainNames = {
+      1: 'Ethereum',
+      8453: 'Base',
+      10: 'Optimism', 
+      42161: 'Arbitrum',
+      43114: 'Avalanche',
+      137: 'Polygon',
+      59144: 'Linea',
+      130: 'Unichain',
+      480: 'World Chain',
+      1329: 'Sei',
+      146: 'Sonic',
+    }
+    return chainNames[chainId as keyof typeof chainNames] || `Chain ${chainId}`
+  }, [])
+
   const formatAddressToBytes32 = useCallback((address: string): `0x${string}` => {
     return `0x000000000000000000000000${address.slice(2).toLowerCase()}` as `0x${string}`
   }, [])
@@ -531,6 +548,12 @@ export const useCCTP = () => {
     const redeemTransfer = useCallback(async (burnTxHash: string, destinationChain: number, attestation: AttestationResponse) => {
     try {
       setCurrentTransferId(burnTxHash)
+      
+      // Check if we're on the correct destination chain first
+      if (currentChainId !== destinationChain) {
+        throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
+      }
+
       updateTransferStatus({ 
         status: 'minting', 
         burnTxHash, 
@@ -563,7 +586,7 @@ export const useCCTP = () => {
       })
       throw error
     }
-  }, [mintUSDC, updateTransferStatus])
+  }, [mintUSDC, updateTransferStatus, currentChainId, getChainName])
 
 return {
     transferUSDC,

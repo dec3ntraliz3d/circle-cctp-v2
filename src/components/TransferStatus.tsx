@@ -3,9 +3,28 @@ import type { TransferStatus as TransferStatusType } from '../types/cctp'
 interface TransferStatusProps {
   status: TransferStatusType
   onReset?: () => void
+  sourceChain?: number
+  destinationChain?: number
 }
 
-export function TransferStatus({ status, onReset }: TransferStatusProps) {
+const getChainExplorer = (chainId: number, txHash: string) => {
+  const explorers = {
+    1: 'https://etherscan.io/tx/',
+    8453: 'https://basescan.org/tx/',
+    10: 'https://optimistic.etherscan.io/tx/',
+    42161: 'https://arbiscan.io/tx/',
+    43114: 'https://snowtrace.io/tx/',
+    137: 'https://polygonscan.com/tx/',
+    59144: 'https://lineascan.build/tx/',
+    130: 'https://uniscan.xyz/tx/',
+    480: 'https://worldscan.org/tx/',
+    1329: 'https://seitrace.com/tx/',
+    146: 'https://sonicscan.org/tx/',
+  }
+  return `${explorers[chainId as keyof typeof explorers] || 'https://etherscan.io/tx/'}${txHash}`
+}
+
+export function TransferStatus({ status, onReset, sourceChain, destinationChain }: TransferStatusProps) {
   if (status.status === 'idle') {
     return null
   }
@@ -91,11 +110,11 @@ export function TransferStatus({ status, onReset }: TransferStatusProps) {
         </div>
       )}
 
-      {status.txHash && (
+      {status.txHash && sourceChain && (
         <div className="tx-info">
           <p>Approval Tx: 
             <a 
-              href={`https://etherscan.io/tx/${status.txHash}`} 
+              href={getChainExplorer(sourceChain, status.txHash)} 
               target="_blank" 
               rel="noopener noreferrer"
             >
@@ -105,11 +124,11 @@ export function TransferStatus({ status, onReset }: TransferStatusProps) {
         </div>
       )}
 
-      {status.burnTxHash && (
+      {status.burnTxHash && sourceChain && (
         <div className="tx-info">
           <p>Burn Tx: 
             <a 
-              href={`https://etherscan.io/tx/${status.burnTxHash}`} 
+              href={getChainExplorer(sourceChain, status.burnTxHash)} 
               target="_blank" 
               rel="noopener noreferrer"
             >
@@ -119,11 +138,11 @@ export function TransferStatus({ status, onReset }: TransferStatusProps) {
         </div>
       )}
 
-      {status.mintTxHash && (
+      {status.mintTxHash && destinationChain && (
         <div className="tx-info">
           <p>Mint Tx: 
             <a 
-              href={`https://etherscan.io/tx/${status.mintTxHash}`} 
+              href={getChainExplorer(destinationChain, status.mintTxHash)} 
               target="_blank" 
               rel="noopener noreferrer"
             >
