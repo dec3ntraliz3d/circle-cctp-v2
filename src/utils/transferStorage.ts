@@ -14,6 +14,7 @@ export interface StoredTransfer {
   attestation?: any
   createdAt: number
   updatedAt: number
+  completedAt?: string
 }
 
 const STORAGE_KEY = 'cctp_transfers'
@@ -95,8 +96,30 @@ export const transferStorage = {
     }
   },
 
+  // Update an existing transfer by burnTxHash
+  updateTransfer(burnTxHash: string, updates: Partial<StoredTransfer>): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
+      
+      const allTransfers: StoredTransfer[] = JSON.parse(stored)
+      const transferIndex = allTransfers.findIndex(t => t.burnTxHash === burnTxHash)
+      
+      if (transferIndex >= 0) {
+        allTransfers[transferIndex] = {
+          ...allTransfers[transferIndex],
+          ...updates,
+          updatedAt: Date.now()
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allTransfers))
+      }
+    } catch (error) {
+      console.error('Error updating transfer in storage:', error)
+    }
+  },
+
   // Generate a unique transfer ID
   generateId(): string {
-    return `cctp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `cctp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 }
