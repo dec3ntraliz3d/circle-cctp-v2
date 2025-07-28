@@ -38,9 +38,9 @@ export function TransferStatus({ status, onReset, sourceChain, destinationChain 
       case 'burning':
         return 'Burning USDC on source chain...'
       case 'waiting_attestation':
-        return 'Waiting for attestation from Circle... This typically takes 15-20 minutes. You can safely close this page and resume the transfer later using the Transaction History below.'
+        return 'Waiting for attestation from Circle... This typically takes 15-20 minutes.'
       case 'attestation_ready':
-        return 'Attestation received! Auto-redemption starting...'
+        return 'Attestation received! Click "Redeem Now" to complete your transfer.'
       case 'minting':
         return 'Minting USDC on destination chain...'
       case 'completed':

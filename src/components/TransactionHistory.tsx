@@ -93,7 +93,7 @@ export function TransactionHistory() {
           const message = data?.messages?.[0]
           
           if (message?.status === 'complete' && message.attestation) {
-            // Attestation is ready - update status and trigger auto-redemption
+            // Attestation is ready - update status for manual redemption
             const attestationData = {
               message: message.message,
               attestation: message.attestation,
@@ -102,6 +102,7 @@ export function TransactionHistory() {
               cctpVersion: message.cctpVersion,
             }
 
+            // Set attestation ready - user will need to be on correct chain to redeem
             transferStorage.updateTransfer(transfer.burnTxHash!, {
               status: 'attestation_ready',
               attestation: attestationData

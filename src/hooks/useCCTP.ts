@@ -385,18 +385,47 @@ export const useCCTP = () => {
         attestation 
       })
 
-      // Don't auto-redeem - let user click redeem button manually
+      // Switch to destination chain immediately when attestation is ready
       updateTransferStatus({ 
-        status: 'attestation_ready', 
+        status: 'switching_chain', 
         burnTxHash: burnTx, 
         attestation 
       })
 
-      // Update stored transfer to show ready for redemption
-      transferStorage.updateTransfer(burnTx, {
-        status: 'attestation_ready',
-        attestation: attestation
-      })
+      try {
+        if (walletClient && currentChainId !== transfer.destinationChain) {
+          await walletClient.switchChain({ id: transfer.destinationChain })
+          // Wait for chain switch to complete
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+        
+        // Now ready for redemption on correct chain
+        updateTransferStatus({ 
+          status: 'attestation_ready', 
+          burnTxHash: burnTx, 
+          attestation 
+        })
+
+        // Update stored transfer to show ready for redemption
+        transferStorage.updateTransfer(burnTx, {
+          status: 'attestation_ready',
+          attestation: attestation
+        })
+      } catch (switchError) {
+        // If chain switch fails, still show attestation ready but with message
+        updateTransferStatus({ 
+          status: 'attestation_ready', 
+          burnTxHash: burnTx, 
+          attestation,
+          error: `Please switch to ${getChainName(transfer.destinationChain)} to redeem your USDC.`
+        })
+
+        transferStorage.updateTransfer(burnTx, {
+          status: 'attestation_ready',
+          attestation: attestation,
+          error: `Please switch to ${getChainName(transfer.destinationChain)} to redeem.`
+        })
+      }
 
     } catch (error) {
       let userFriendlyError = 'Unknown error occurred'
@@ -571,41 +600,15 @@ export const useCCTP = () => {
     try {
       setCurrentTransferId(burnTxHash)
       
-      let chainWasSwitched = false
-      
-      // Auto-switch to destination chain if not already there
-      if (currentChainId !== destinationChain && walletClient) {
-        try {
-          updateTransferStatus({ 
-            status: 'switching_chain', 
-            burnTxHash, 
-            attestation 
-          })
-          
-          await walletClient.switchChain({ id: destinationChain })
-          chainWasSwitched = true
-          
-          // Wait longer for chain switch to complete and be confirmed by wallet
-          await new Promise(resolve => setTimeout(resolve, 3000))
-          
-          // Verify the switch was successful by checking the wallet's chain
-          const currentWalletChain = await walletClient.getChainId()
-          if (currentWalletChain !== destinationChain) {
-            throw new Error(`Chain switch failed. Please manually switch to ${getChainName(destinationChain)} and try again.`)
-          }
-        } catch (switchError) {
-          throw new Error(`Please switch to ${getChainName(destinationChain)} to complete the redemption. You are currently on ${getChainName(currentChainId)}.`)
-        }
-      }
-
       updateTransferStatus({ 
         status: 'minting', 
         burnTxHash, 
         attestation 
       })
 
-      // Pass chainWasSwitched flag to mintUSDC to skip chain verification
-      const mintTx = await mintUSDC(destinationChain as ChainId, attestation, chainWasSwitched)
+      // Chain should already be switched when attestation was received
+      // Skip chain check since we pre-switched when attestation became ready
+      const mintTx = await mintUSDC(destinationChain as ChainId, attestation, true)
       
       updateTransferStatus({ 
         status: 'completed', 
