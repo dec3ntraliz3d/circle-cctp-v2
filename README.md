@@ -173,7 +173,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If this project helped you or you'd like to support development:
 
-**Ethereum/Base/Polygon/etc:** `0x85733C9aEC50F084Ac58259eC23933931CBBC2ee`
+**ENS:** `sabbir.eth` (works on all EVM chains)
 
 *All tips are greatly appreciated and help fund continued development! 🚀*
 

@@ -57,13 +57,13 @@ function App() {
                   <span className="footer-separator">•</span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText('0x85733C9aEC50F084Ac58259eC23933931CBBC2ee')
-                      alert('Tip address copied to clipboard! 🙏')
+                      navigator.clipboard.writeText('sabbir.eth')
+                      alert('ENS address copied to clipboard! 🙏')
                     }}
                     className="footer-link tip-button"
-                    title="Copy tip address"
+                    title="Copy ENS address for tips"
                   >
-                    💝 Support Dev
+                    💝 sabbir.eth
                   </button>
                 </div>
                 <p className="built-by">
