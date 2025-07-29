@@ -1,212 +1,184 @@
-# Circle CCTP v2 - Cross-Chain USDC Transfer
+# Circle CCTP v2 - Cross-Chain Transfer Protocol
 
-A React application that enables seamless cross-chain USDC transfers using Circle's Cross-Chain Transfer Protocol (CCTP) v2. Transfer USDC between 11 supported EVM networks with native burn-and-mint functionality.
+⚠️ **Educational Purpose Only** - This application is for educational and demonstration purposes. Use at your own risk.
 
-![Circle CCTP v2](https://img.shields.io/badge/Circle-CCTP%20v2-blue)
-![React](https://img.shields.io/badge/React-18-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Vite](https://img.shields.io/badge/Vite-7-purple)
+A modern React application for seamless cross-chain USDC transfers using Circle's CCTP v2 protocol. Transfer USDC across 11 supported chains with fast transfer options and comprehensive transaction history.
+
+![Circle CCTP v2 Interface](https://img.shields.io/badge/React-18.2.0-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue) ![Circle CCTP](https://img.shields.io/badge/Circle-CCTP%20v2-green)
 
 ## ✨ Features
 
-- **11 Supported Networks**: Ethereum, Base, Optimism, Arbitrum, Avalanche, Polygon, Linea, Unichain, World Chain, Sei, and Sonic
-- **Native USDC Transfers**: True cross-chain transfers using Circle's burn-and-mint mechanism
-- **Modern UI**: Clean interface with network icons and intuitive design
-- **Wallet Integration**: Connect with MetaMask, WalletConnect, and other popular wallets
-- **Real-time Status**: Track transfer progress with detailed status updates
-- **Manual Recovery**: Built-in tools for completing failed transfers
-- **Fast Transfers**: Optimized for speed with minimal finality thresholds
-
-## 🌐 Supported Networks
-
-| Network | Chain ID | Domain | Native USDC |
-|---------|----------|---------|-------------|
-| Ethereum | 1 | 0 | ✅ |
-| Base | 8453 | 6 | ✅ |
-| Optimism | 10 | 2 | ✅ |
-| Arbitrum | 42161 | 3 | ✅ |
-| Avalanche | 43114 | 1 | ✅ |
-| Polygon | 137 | 7 | ✅ |
-| Linea | 59144 | 11 | ✅ |
-| Unichain | 130 | 10 | ✅ |
-| World Chain | 480 | 14 | ✅ |
-| Sei | 1329 | 16 | ✅ |
-| Sonic | 146 | 13 | ✅ |
+- 🌐 **11 Supported Networks**: Ethereum, Base, Optimism, Arbitrum, Avalanche, Polygon, Linea, Unichain, World Chain, Sei, Sonic
+- ⚡ **Fast Transfers**: 2-15 minute transfers with small fees vs 15-20 minute free transfers
+- 📱 **Modern UI**: Beautiful, responsive interface with real-time status updates
+- 🔄 **Transaction History**: Persistent transfer tracking with automatic recovery
+- 🔗 **Smart Chain Switching**: Automatic wallet chain switching for seamless UX
+- 💰 **Balance Display**: Real-time USDC balance with MAX button functionality
+- 🎯 **One-Click Redemption**: Simple redeem process when attestations are ready
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 16+ 
-- npm or yarn
-- A Web3 wallet (MetaMask recommended)
+- Node.js 18+ and npm
+- A Web3 wallet (MetaMask, WalletConnect, etc.)
+- USDC tokens on supported networks
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd circle-cctp
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/dec3ntraliz3d/circle-cctp-v2.git
+cd circle-cctp-v2
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+# Install dependencies
+npm install
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Add your WalletConnect Project ID to `.env`:
-   ```
-   VITE_WALLET_CONNECT_PROJECT_ID=your_project_id_here
-   ```
+# Copy environment file
+cp .env.example .env
 
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
+# Add your WalletConnect Project ID
+# Get one from: https://cloud.walletconnect.com/
+echo "VITE_WALLET_CONNECT_PROJECT_ID=your_project_id_here" >> .env
 
-5. **Open your browser**
-   Navigate to `http://localhost:3000`
+# Start development server
+npm run dev
+```
 
-## 📦 Environment Setup
+### Build for Production
 
-### WalletConnect Project ID
+```bash
+npm run build
+npm run preview
+```
 
-1. Visit [WalletConnect Cloud](https://cloud.walletconnect.com/)
-2. Create a new project
-3. Copy your Project ID
-4. Add it to your `.env` file
+## 🛠 Technology Stack
 
-## 🛠️ How It Works
+- **Frontend**: React 18 + TypeScript + Vite
+- **Web3**: wagmi v2 + viem + RainbowKit
+- **Styling**: Custom CSS with responsive design
+- **Protocol**: Circle CCTP v2 mainnet contracts
+- **Storage**: LocalStorage for transfer persistence
 
-### CCTP Transfer Flow
+## 🔗 Supported Networks
 
-1. **Approval**: Approve USDC spending on the source chain
-2. **Burn**: Call `depositForBurn` on the TokenMessenger contract
-3. **Attestation**: Wait for Circle's attestation service to verify the burn
-4. **Mint**: Call `receiveMessage` on the destination chain's MessageTransmitter
+| Network | Chain ID | Domain | Fast Transfer Fee |
+|---------|----------|---------|-------------------|
+| Ethereum | 1 | 0 | 0.01% |
+| Base | 8453 | 6 | 0.01% |
+| Optimism | 10 | 2 | 0.01% |
+| Arbitrum | 42161 | 3 | 0.01% |
+| Avalanche | 43114 | 1 | 0.01% |
+| Polygon | 137 | 7 | 0.01% |
+| Linea | 59144 | 11 | 0.14% |
+| Unichain | 130 | 10 | 0.01% |
+| World Chain | 480 | 14 | 0.01% |
+| Sei | 1329 | 16 | 0.01% |
+| Sonic | 146 | 13 | 0.01% |
+
+## 📖 How It Works
+
+### Transfer Process
+
+1. **Connect Wallet**: Connect your Web3 wallet using RainbowKit
+2. **Select Networks**: Choose source and destination chains
+3. **Enter Details**: Input amount and destination address
+4. **Choose Speed**: Fast (2-15 min, small fee) or Standard (15-20 min, free)
+5. **Execute Transfer**: Approve → Burn → Wait for Attestation → Redeem
 
 ### Key Components
 
-- **TokenMessenger**: Handles burn operations on source chain
-- **MessageTransmitter**: Handles mint operations on destination chain
-- **Circle Attestation Service**: Provides cryptographic proof of burns
+- **TransferForm**: Main interface for initiating transfers
+- **TransactionHistory**: Persistent tracking of all transfers
+- **NetworkSelector**: Chain selection with visual indicators
+- **WalletConnect**: Web3 wallet integration
 
-## 📋 Available Scripts
+## 🔧 Configuration
+
+### Environment Variables
 
 ```bash
-# Development
+VITE_WALLET_CONNECT_PROJECT_ID=your_walletconnect_project_id
+```
+
+### Contract Addresses
+
+All contract addresses are configured in `src/config/cctp.ts` using official Circle CCTP v2 mainnet contracts.
+
+## 🧪 Development
+
+### Available Scripts
+
+```bash
 npm run dev          # Start development server
 npm run build        # Build for production
 npm run preview      # Preview production build
-
-# Code Quality
-npm run typecheck    # Run TypeScript type checking
-npm run lint         # Run ESLint (if configured)
-
-# Deployment
-npm run build        # Build for Vercel deployment
+npm run typecheck    # Run TypeScript checks
 ```
 
-## 🔧 Project Structure
+### Project Structure
 
 ```
 src/
-├── components/           # React components
-│   ├── TransferForm.tsx     # Main transfer interface
-│   ├── NetworkSelector.tsx  # Network selection with icons
-│   ├── TransferStatus.tsx   # Transfer progress tracking
-│   ├── WalletConnect.tsx   # Wallet connection
-│   └── ManualRecovery.tsx  # Manual transfer completion
-├── config/              # Configuration files
-│   ├── cctp.ts             # CCTP contract addresses
-│   └── wagmi.ts            # Wagmi/wallet configuration
-├── hooks/               # Custom React hooks
-│   └── useCCTP.ts          # Main CCTP transfer logic
-├── types/               # TypeScript type definitions
-│   └── cctp.ts             # CCTP-related types
-├── utils/               # Utility functions
-│   └── transferStorage.ts  # Local storage for transfers
-└── App.tsx              # Main application component
+├── components/          # React components
+│   ├── TransferForm.tsx
+│   ├── TransactionHistory.tsx
+│   ├── NetworkSelector.tsx
+│   └── WalletConnect.tsx
+├── config/             # Configuration files
+│   ├── wagmi.ts       # wagmi configuration
+│   └── cctp.ts        # CCTP contracts & domains
+├── hooks/             # Custom React hooks
+│   └── useCCTP.ts     # Main CCTP logic
+├── types/             # TypeScript definitions
+├── utils/             # Utility functions
+└── App.tsx           # Main application
 ```
 
-## 🔐 Security
+## ⚠️ Important Notes
 
-- **Mainnet Contracts**: Uses official Circle CCTP v2 mainnet contracts
-- **No Private Keys**: Uses standard Web3 wallet connections
-- **Attestation Verification**: All transfers verified by Circle's attestation service
-- **Open Source**: Full transparency with public codebase
+- **Mainnet Contracts**: Uses real CCTP v2 mainnet contracts
+- **Transaction Fees**: Users pay network gas fees + optional fast transfer fees
+- **Attestation Time**: Standard transfers take 15-20 minutes for Circle attestation
+- **Educational Use**: This is for learning and demonstration purposes
 
-## 🌍 Deployment
+## 🐛 Known Issues & Limitations
 
-### Vercel Deployment
-
-1. **Connect to Vercel**
-   - Push your code to GitHub
-   - Connect your repository to Vercel
-   - Vercel will auto-detect the Vite configuration
-
-2. **Environment Variables**
-   - Add `VITE_WALLET_CONNECT_PROJECT_ID` in Vercel's environment settings
-   - All other environment variables are optional for production
-
-3. **Build Settings**
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Install Command: `npm install`
-
-### Manual Deployment
-
-```bash
-# Build the application
-npm run build
-
-# The built files will be in the `dist` directory
-# Deploy the contents of `dist` to your hosting service
-```
-
-## 🔗 Links
-
-- [Circle CCTP Documentation](https://developers.circle.com/cctp)
-- [Circle CCTP Smart Contracts](https://developers.circle.com/cctp/evm-smart-contracts)
-- [USDC Contract Addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses)
-- [Wagmi Documentation](https://wagmi.sh/)
-- [Viem Documentation](https://viem.sh/)
+- Attestation times may vary based on network congestion
+- Some wallets may require manual chain switching
+- Transaction history is stored locally (not synced across devices)
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## ⚠️ Disclaimer
+## 🙏 Acknowledgments
 
-This application facilitates USDC transfers using Circle's CCTP protocol. While the protocol is secure and battle-tested, always:
+- **Circle** for the CCTP protocol
+- **wagmi** team for excellent Web3 React hooks
+- **RainbowKit** for beautiful wallet connection
+- **Vite** for fast development experience
 
-- Verify recipient addresses carefully
-- Start with small test amounts
-- Understand the networks you're transferring between
-- Keep transaction hashes for reference
+## 💡 Support the Project
 
-## 🆘 Support
+If this project helped you or you'd like to support development:
 
-If you encounter issues:
+**Ethereum/Base/Polygon/etc:** `0x85733C9aEC50F084Ac58259eC23933931CBBC2ee`
 
-1. Check the [Manual Recovery](#-manual-recovery) section
-2. Verify your wallet is connected to the correct network
-3. Ensure you have sufficient gas fees
-4. Open an issue on GitHub for bugs or feature requests
+*All tips are greatly appreciated and help fund continued development! 🚀*
 
 ---
 
-**Built with ❤️ using Circle CCTP v2, React, and TypeScript**
+**Built with ❤️ by [dec3ntraliz3d](https://github.com/dec3ntraliz3d)**
+
+*Educational project - Use at your own risk*

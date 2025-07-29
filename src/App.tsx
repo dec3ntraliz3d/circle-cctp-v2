@@ -43,7 +43,41 @@ function App() {
             </main>
 
             <footer className="app-footer">
-              <p>Powered by Circle CCTP, RainbowKit, wagmi, and viem</p>
+              <div className="footer-content">
+                <p>Powered by Circle CCTP, RainbowKit, wagmi, and viem</p>
+                <div className="footer-links">
+                  <a 
+                    href="https://github.com/dec3ntraliz3d/circle-cctp-v2" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="footer-link"
+                  >
+                    ⭐ Star on GitHub
+                  </a>
+                  <span className="footer-separator">•</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText('0x85733C9aEC50F084Ac58259eC23933931CBBC2ee')
+                      alert('Tip address copied to clipboard! 🙏')
+                    }}
+                    className="footer-link tip-button"
+                    title="Copy tip address"
+                  >
+                    💝 Support Dev
+                  </button>
+                </div>
+                <p className="built-by">
+                  Built with ❤️ by{' '}
+                  <a 
+                    href="https://github.com/dec3ntraliz3d" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="author-link"
+                  >
+                    dec3ntraliz3d
+                  </a>
+                </p>
+              </div>
             </footer>
           </div>
         </RainbowKitProvider>
