@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId, useWalletClient } from 'wagmi'
 import { formatUnits } from 'viem'
 import { transferStorage, type StoredTransfer } from '../utils/transferStorage'
 import { useCCTP } from '../hooks/useCCTP'
@@ -32,9 +32,12 @@ const STATUS_INFO = {
 
 export function TransactionHistory() {
   const { address } = useAccount()
+  const currentChainId = useChainId()
+  const { data: walletClient } = useWalletClient()
   const { transferStatus, redeemTransfer } = useCCTP()
   const [transfers, setTransfers] = useState<StoredTransfer[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
+  const [switchingChain, setSwitchingChain] = useState<string | null>(null)
 
   const getDomainId = (chainId: number): string => {
     const domainMap: Record<number, string> = {
@@ -208,6 +211,26 @@ export function TransactionHistory() {
   }, [address, transfers])
 
 
+  const handleSwitchChain = async (transfer: StoredTransfer) => {
+    if (!walletClient) return
+
+    setSwitchingChain(transfer.burnTxHash || '')
+    
+    try {
+      await walletClient.switchChain({ id: transfer.destinationChain })
+      // Wait for chain switch to complete
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    } catch (error) {
+      console.error('Failed to switch chain:', error)
+      transferStorage.updateTransfer(transfer.burnTxHash!, {
+        error: `Chain switch failed: ${error instanceof Error ? error.message : 'Please try again'}`
+      })
+      setTransfers(transferStorage.getTransfers(address || ''))
+    } finally {
+      setSwitchingChain(null)
+    }
+  }
+
   const handleRedeemTransfer = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash || !transfer.attestation) {
       transferStorage.updateTransfer(transfer.id, {
@@ -223,9 +246,21 @@ export function TransactionHistory() {
       setTransfers(transferStorage.getTransfers(address || ''))
     } catch (error) {
       console.error('Failed to redeem transfer:', error)
-      transferStorage.updateTransfer(transfer.burnTxHash, {
-        error: `Redemption failed: ${error instanceof Error ? error.message : 'Please try again'}`
-      })
+      
+      // If user cancelled, just reset the error and keep attestation ready
+      if (error instanceof Error && (
+        error.message.toLowerCase().includes('user rejected') || 
+        error.message.toLowerCase().includes('user denied')
+      )) {
+        transferStorage.updateTransfer(transfer.burnTxHash, {
+          status: 'attestation_ready',
+          error: undefined // Clear the error so button becomes enabled again
+        })
+      } else {
+        transferStorage.updateTransfer(transfer.burnTxHash, {
+          error: `Redemption failed: ${error instanceof Error ? error.message : 'Please try again'}`
+        })
+      }
       setTransfers(transferStorage.getTransfers(address || ''))
     }
   }
@@ -400,13 +435,26 @@ export function TransactionHistory() {
 
                         {transfer.status === 'attestation_ready' && transfer.attestation && (
                           <div className="transfer-actions">
-                            <button
-                              onClick={() => handleRedeemTransfer(transfer)}
-                              disabled={transferStatus.status !== 'idle'}
-                              className="resume-btn redeem-btn"
-                            >
-                              ⚡ Redeem Now
-                            </button>
+                            {currentChainId !== transfer.destinationChain ? (
+                              <button
+                                onClick={() => handleSwitchChain(transfer)}
+                                disabled={switchingChain === transfer.burnTxHash}
+                                className="resume-btn"
+                                style={{ background: '#667eea' }}
+                              >
+                                {switchingChain === transfer.burnTxHash 
+                                  ? '🔄 Switching...' 
+                                  : `🔗 Switch to ${CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.name || `Chain ${transfer.destinationChain}`}`}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleRedeemTransfer(transfer)}
+                                disabled={transferStatus.status !== 'idle'}
+                                className="resume-btn redeem-btn"
+                              >
+                                ⚡ Redeem Now
+                              </button>
+                            )}
                           </div>
                         )}
 
@@ -424,7 +472,7 @@ export function TransactionHistory() {
                             maxHeight: '100px',
                             overflow: 'auto'
                           }}>
-{transfer.error.length > 200 ? transfer.error.substring(0, 200) + '...' : transfer.error}
+{transfer.error.length > 100 ? transfer.error.substring(0, 100) + '...' : transfer.error}
                           </div>
                         )}
 
@@ -524,7 +572,7 @@ export function TransactionHistory() {
                             maxHeight: '100px',
                             overflow: 'auto'
                           }}>
-{transfer.error.length > 200 ? transfer.error.substring(0, 200) + '...' : transfer.error}
+{transfer.error.length > 100 ? transfer.error.substring(0, 100) + '...' : transfer.error}
                           </div>
                         )}
 
