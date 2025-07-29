@@ -222,6 +222,17 @@ export function TransactionHistory() {
       await new Promise(resolve => setTimeout(resolve, 1000))
     } catch (error) {
       console.error('Failed to switch chain:', error)
+      
+      // If user cancelled chain switch, don't show error
+      if (error instanceof Error && (
+        error.message.toLowerCase().includes('user rejected') || 
+        error.message.toLowerCase().includes('user denied')
+      )) {
+        // User cancellation is not an error - just return without updating anything
+        return
+      }
+      
+      // Only update with error message for actual failures
       transferStorage.updateTransfer(transfer.burnTxHash!, {
         error: `Chain switch failed: ${error instanceof Error ? error.message : 'Please try again'}`
       })
@@ -247,20 +258,19 @@ export function TransactionHistory() {
     } catch (error) {
       console.error('Failed to redeem transfer:', error)
       
-      // If user cancelled, just reset the error and keep attestation ready
+      // If user cancelled, do nothing - keep button active
       if (error instanceof Error && (
         error.message.toLowerCase().includes('user rejected') || 
         error.message.toLowerCase().includes('user denied')
       )) {
-        transferStorage.updateTransfer(transfer.burnTxHash, {
-          status: 'attestation_ready',
-          error: undefined // Clear the error so button becomes enabled again
-        })
-      } else {
-        transferStorage.updateTransfer(transfer.burnTxHash, {
-          error: `Redemption failed: ${error instanceof Error ? error.message : 'Please try again'}`
-        })
+        // User cancellation is not an error - just return without updating anything
+        return
       }
+      
+      // Only update with error message for actual failures
+      transferStorage.updateTransfer(transfer.burnTxHash, {
+        error: `Redemption failed: ${error instanceof Error ? error.message : 'Please try again'}`
+      })
       setTransfers(transferStorage.getTransfers(address || ''))
     }
   }
