@@ -134,7 +134,7 @@ body {
 .fast-transfer-option {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 2rem;
   cursor: pointer;
   margin-bottom: 0.5rem;
 }
@@ -143,12 +143,19 @@ body {
   width: 18px;
   height: 18px;
   cursor: pointer;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .checkbox-label {
   font-weight: 500;
   color: #333;
   cursor: pointer;
+  margin-left: 1rem;
+  line-height: 18px;
+  vertical-align: middle;
 }
 
 .transfer-info {

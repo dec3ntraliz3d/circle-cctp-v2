@@ -421,20 +421,20 @@ export function TransactionHistory() {
                       <div className="transfer-main">
                         <div className="transfer-route">
                           <div className="chain-info">
-                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.color }}>
-                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.icon}
+                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.color || '#666' }}>
+                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.icon || '⚪'}
                             </span>
                             <span className="chain-name">
-                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.name}
+                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.name || `Chain ${transfer.sourceChain}`}
                             </span>
                           </div>
                           <div className="route-arrow">→</div>
                           <div className="chain-info">
-                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.color }}>
-                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.icon}
+                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.color || '#666' }}>
+                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.icon || '⚪'}
                             </span>
                             <span className="chain-name">
-                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.name}
+                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.name || `Chain ${transfer.destinationChain}`}
                             </span>
                           </div>
                         </div>
@@ -513,9 +513,13 @@ export function TransactionHistory() {
                             borderRadius: '6px',
                             color: '#c53030',
                             fontSize: '0.875rem',
-                            marginBottom: '1rem'
+                            marginBottom: '1rem',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            maxHeight: '100px',
+                            overflow: 'auto'
                           }}>
-                            {transfer.error}
+{transfer.error.length > 200 ? transfer.error.substring(0, 200) + '...' : transfer.error}
                           </div>
                         )}
 
@@ -548,20 +552,20 @@ export function TransactionHistory() {
                       <div className="transfer-main">
                         <div className="transfer-route">
                           <div className="chain-info">
-                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.color }}>
-                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.icon}
+                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.color || '#666' }}>
+                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.icon || '⚪'}
                             </span>
                             <span className="chain-name">
-                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.name}
+                              {CHAIN_INFO[transfer.sourceChain as keyof typeof CHAIN_INFO]?.name || `Chain ${transfer.sourceChain}`}
                             </span>
                           </div>
                           <div className="route-arrow">→</div>
                           <div className="chain-info">
-                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.color }}>
-                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.icon}
+                            <span className="chain-icon" style={{ color: CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.color || '#666' }}>
+                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.icon || '⚪'}
                             </span>
                             <span className="chain-name">
-                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.name}
+                              {CHAIN_INFO[transfer.destinationChain as keyof typeof CHAIN_INFO]?.name || `Chain ${transfer.destinationChain}`}
                             </span>
                           </div>
                         </div>
@@ -609,9 +613,13 @@ export function TransactionHistory() {
                             borderRadius: '6px',
                             color: '#c53030',
                             fontSize: '0.875rem',
-                            marginBottom: '1rem'
+                            marginBottom: '1rem',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'break-word',
+                            maxHeight: '100px',
+                            overflow: 'auto'
                           }}>
-                            {transfer.error}
+{transfer.error.length > 200 ? transfer.error.substring(0, 200) + '...' : transfer.error}
                           </div>
                         )}
 
