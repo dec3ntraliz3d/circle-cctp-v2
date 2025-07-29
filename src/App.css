@@ -16,6 +16,40 @@ body {
   flex-direction: column;
 }
 
+/* Disclaimer Banner */
+.disclaimer-banner {
+  background: linear-gradient(135deg, #fed7d7, #feb2b2);
+  border-bottom: 2px solid #e53e3e;
+  padding: 0.75rem 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.disclaimer-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.disclaimer-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.disclaimer-text {
+  color: #742a2a;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.disclaimer-text strong {
+  font-weight: 700;
+}
+
 .app-header {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
@@ -876,6 +910,19 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .disclaimer-banner {
+    padding: 0.5rem 1rem;
+  }
+  
+  .disclaimer-content {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .disclaimer-text {
+    font-size: 0.85rem;
+  }
+  
   .app-header {
     padding: 1rem;
   }

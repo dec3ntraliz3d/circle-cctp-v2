@@ -17,6 +17,16 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <div className="app">
+            <div className="disclaimer-banner">
+              <div className="disclaimer-content">
+                <span className="disclaimer-icon">⚠️</span>
+                <span className="disclaimer-text">
+                  <strong>Educational Purpose Only:</strong> This application is for educational and demonstration purposes. 
+                  Use at your own risk. Always verify transactions and contract addresses before proceeding.
+                </span>
+              </div>
+            </div>
+
             <header className="app-header">
               <div className="header-content">
                 <div className="header-text">
