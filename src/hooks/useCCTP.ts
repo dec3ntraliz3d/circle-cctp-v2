@@ -592,12 +592,23 @@ export const useCCTP = () => {
 
       return mintTx
     } catch (error) {
-      updateTransferStatus({ 
-        status: 'attestation_ready', 
-        burnTxHash, 
-        attestation,
-        error: error instanceof Error ? error.message : 'Redemption failed'
-      })
+      // If user cancelled, reset to idle status so buttons become active again
+      if (error instanceof Error && (
+        error.message.toLowerCase().includes('user rejected') || 
+        error.message.toLowerCase().includes('user denied')
+      )) {
+        updateTransferStatus({ 
+          status: 'idle'
+        })
+      } else {
+        // For actual errors, show error status
+        updateTransferStatus({ 
+          status: 'attestation_ready', 
+          burnTxHash, 
+          attestation,
+          error: error instanceof Error ? error.message : 'Redemption failed'
+        })
+      }
       throw error
     }
   }, [mintUSDC, updateTransferStatus, currentChainId, getChainName, walletClient])

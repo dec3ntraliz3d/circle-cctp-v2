@@ -258,12 +258,12 @@ export function TransactionHistory() {
     } catch (error) {
       console.error('Failed to redeem transfer:', error)
       
-      // If user cancelled, do nothing - keep button active
+      // If user cancelled, do nothing - the hook already handles resetting status
       if (error instanceof Error && (
         error.message.toLowerCase().includes('user rejected') || 
         error.message.toLowerCase().includes('user denied')
       )) {
-        // User cancellation is not an error - just return without updating anything
+        // User cancellation is handled in the useCCTP hook
         return
       }
       
