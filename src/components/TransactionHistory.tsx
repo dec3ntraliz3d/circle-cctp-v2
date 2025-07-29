@@ -32,7 +32,7 @@ const STATUS_INFO = {
 
 export function TransactionHistory() {
   const { address } = useAccount()
-  const { resumeTransfer, transferStatus, redeemTransfer } = useCCTP()
+  const { transferStatus, redeemTransfer } = useCCTP()
   const [transfers, setTransfers] = useState<StoredTransfer[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -207,25 +207,6 @@ export function TransactionHistory() {
     }
   }, [address, transfers])
 
-  const handleResumeTransfer = async (transfer: StoredTransfer) => {
-    if (!transfer.burnTxHash) {
-      transferStorage.updateTransfer(transfer.id, {
-        error: 'Cannot resume transfer: No transaction hash found'
-      })
-      setTransfers(transferStorage.getTransfers(address || ''))
-      return
-    }
-
-    try {
-      await resumeTransfer(transfer.id, transfer.burnTxHash, transfer.sourceChain, transfer.destinationChain)
-    } catch (error) {
-      console.error('Failed to resume transfer:', error)
-      transferStorage.updateTransfer(transfer.burnTxHash, {
-        error: `Resume failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      })
-      setTransfers(transferStorage.getTransfers(address || ''))
-    }
-  }
 
   const handleRedeemTransfer = async (transfer: StoredTransfer) => {
     if (!transfer.burnTxHash || !transfer.attestation) {
@@ -249,63 +230,6 @@ export function TransactionHistory() {
     }
   }
 
-  const handleCheckStatus = async (transfer: StoredTransfer) => {
-    if (!transfer.burnTxHash) {
-      transferStorage.updateTransfer(transfer.id, {
-        error: 'Cannot check status: No transaction hash found'
-      })
-      setTransfers(transferStorage.getTransfers(address || ''))
-      return
-    }
-
-    try {
-      const domainId = getDomainId(transfer.sourceChain)
-      const response = await fetch(`https://iris-api.circle.com/v2/messages/${domainId}?transactionHash=${transfer.burnTxHash}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        const message = data?.messages?.[0]
-        
-        if (message?.status === 'complete' && message.attestation) {
-          // Update stored transfer with attestation
-          transferStorage.updateTransfer(transfer.burnTxHash, {
-            status: 'attestation_ready',
-            attestation: {
-              message: message.message,
-              attestation: message.attestation,
-              status: 'complete',
-              eventNonce: message.eventNonce,
-              cctpVersion: message.cctpVersion,
-            },
-            error: 'Attestation ready! Click "Redeem Now" to complete your transfer.'
-          })
-          setTransfers(transferStorage.getTransfers(address!))
-        } else if (message?.status === 'pending_confirmations') {
-          transferStorage.updateTransfer(transfer.burnTxHash, {
-            status: 'waiting_attestation',
-            error: 'Transfer confirmed on blockchain. Waiting for attestation (~20 minutes).'
-          })
-          setTransfers(transferStorage.getTransfers(address!))
-        } else {
-          transferStorage.updateTransfer(transfer.burnTxHash, {
-            error: 'Transfer still processing. Please wait and check again later.'
-          })
-          setTransfers(transferStorage.getTransfers(address!))
-        }
-      } else {
-        transferStorage.updateTransfer(transfer.burnTxHash, {
-          error: 'Unable to check status. Please try again later.'
-        })
-        setTransfers(transferStorage.getTransfers(address!))
-      }
-    } catch (error) {
-      console.error('Failed to check transfer status:', error)
-      transferStorage.updateTransfer(transfer.burnTxHash, {
-        error: 'Status check failed. Please try again.'
-      })
-      setTransfers(transferStorage.getTransfers(address!))
-    }
-  }
 
   const handleClearHistory = () => {
     if (!address) return
@@ -474,34 +398,15 @@ export function TransactionHistory() {
                           </div>
                         </div>
 
-                        {transfer.burnTxHash && transfer.status !== 'completed' && (
+                        {transfer.status === 'attestation_ready' && transfer.attestation && (
                           <div className="transfer-actions">
-                            {transfer.status === 'attestation_ready' && transfer.attestation ? (
-                              <button
-                                onClick={() => handleRedeemTransfer(transfer)}
-                                disabled={transferStatus.status !== 'idle'}
-                                className="resume-btn redeem-btn"
-                              >
-                                ⚡ Redeem Now
-                              </button>
-                            ) : transfer.status === 'waiting_attestation' ? (
-                              <button
-                                onClick={() => handleResumeTransfer(transfer)}
-                                disabled={transferStatus.status !== 'idle'}
-                                className="resume-btn"
-                              >
-                                ▶ Resume Transfer
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleCheckStatus(transfer)}
-                                disabled={transferStatus.status !== 'idle'}
-                                className="resume-btn"
-                                style={{ background: '#48bb78' }}
-                              >
-                                🔍 Check Status
-                              </button>
-                            )}
+                            <button
+                              onClick={() => handleRedeemTransfer(transfer)}
+                              disabled={transferStatus.status !== 'idle'}
+                              className="resume-btn redeem-btn"
+                            >
+                              ⚡ Redeem Now
+                            </button>
                           </div>
                         )}
 

@@ -482,68 +482,6 @@ export const useCCTP = () => {
     }
   }, [currentChainId, checkBalance, checkAllowance, approveUSDC, burnUSDC, retrieveAttestation, mintUSDC, publicClient, calculateFastTransferFee])
 
-  const resumeTransfer = useCallback(async (
-    transferId: string,
-    burnTxHash: string,
-    sourceChain: number,
-    destinationChain: number
-  ) => {
-    setCurrentTransferId(transferId)
-    
-    try {
-      updateTransferStatus({ status: 'waiting_attestation', burnTxHash })
-      
-      // Get attestation using the burn transaction hash
-      const sourceContracts = getContractsForChain(sourceChain as ChainId)
-      const attestation = await retrieveAttestation(burnTxHash, sourceContracts.domain)
-      
-      updateTransferStatus({ 
-        status: 'waiting_attestation', 
-        burnTxHash, 
-        attestation 
-      })
-
-      // Mint USDC on destination chain
-      updateTransferStatus({ status: 'minting', burnTxHash, attestation })
-      const mintTx = await mintUSDC(destinationChain as ChainId, attestation)
-      
-      updateTransferStatus({ 
-        status: 'completed', 
-        burnTxHash, 
-        mintTxHash: mintTx, 
-        attestation 
-      })
-
-      // Reset transfer status after showing success briefly  
-      setTimeout(() => {
-        setTransferStatus({ status: 'idle' })
-        setCurrentTransferId(null)
-      }, 3000)
-
-    } catch (error) {
-      let userFriendlyError = 'Resume failed'
-      
-      if (error instanceof Error) {
-        const errorMessage = error.message.toLowerCase()
-        
-        if (errorMessage.includes('user rejected') || errorMessage.includes('user denied')) {
-          userFriendlyError = 'Transaction was cancelled by user'
-        } else if (errorMessage.includes('switch to the destination chain')) {
-          userFriendlyError = error.message
-        } else {
-          userFriendlyError = `Resume failed: ${error.message}`
-        }
-      }
-      
-      updateTransferStatus({ 
-        status: 'error', 
-        error: userFriendlyError,
-        burnTxHash 
-      })
-      
-      throw error
-    }
-  }, [retrieveAttestation, mintUSDC, updateTransferStatus])
 
   const clearError = useCallback(() => {
     if (transferStatus.status === 'error' || transferStatus.status === 'completed') {
@@ -672,7 +610,6 @@ return {
     checkBalance,
     getUSDCBalance,
     manualMint,
-    resumeTransfer,
     redeemTransfer,
   }
 }
